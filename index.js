@@ -176,7 +176,7 @@ async function login(result, req,indexes) {
           allSpreadSheetData.data.values
         );
         // console.log('req', req.body)
-        responseData['user'] = userDetails.find(item => item.RegID === req.body.regID && item.Name.toLowerCase().includes(req.body.name.toLowerCase()))
+        responseData['user'] = userDetails.find(item => item.RegID === req.body.regID && item.Name.toLowerCase().contains(req.body.name.toLowerCase()))
       }
     }))
   return responseData;
