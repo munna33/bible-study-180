@@ -21,7 +21,7 @@ app.use(
   })
 );
 const auth = new google.auth.GoogleAuth({
-  keyFile: "config.json",
+  keyFile: "config.js",
   scopes: [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/forms.body",
