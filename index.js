@@ -4,7 +4,7 @@ const express = require("express");
 const { google } = require("googleapis");
 const cors = require("cors");
 const bodyParser = require("body-parser")
-const credentials = require('./config.js'); // Adjust the path as necessary
+import credentials from "./config.js";
 
 //initilize express
 const app = express();

@@ -1,4 +1,4 @@
-const config = {
+const credentials = {
   "type": "service_account",
   "project_id": process.env.PROJECT_ID,
   "private_key_id": process.env.PRIVATE_KEY_ID,
@@ -11,4 +11,4 @@ const config = {
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/bible-study%40bible-study-392408.iam.gserviceaccount.com",
   "universe_domain": "googleapis.com"
 }
-export default config;
+export default credentials;
