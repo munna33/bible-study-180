@@ -11,4 +11,4 @@ const credentials = {
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/bible-study%40bible-study-392408.iam.gserviceaccount.com",
   "universe_domain": "googleapis.com"
 }
-export default credentials;
+module.exports = credentials;
