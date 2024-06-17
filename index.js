@@ -4,7 +4,7 @@ const express = require("express");
 const { google } = require("googleapis");
 const cors = require("cors");
 const bodyParser = require("body-parser")
-const credentials  = required("./config.js") ;
+const credentials  = require("./config.js") ;
 
 //initilize express
 const app = express();
