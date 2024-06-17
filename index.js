@@ -225,10 +225,10 @@ function formatAllSheetData(data) {
   for (const day in data) {
     const entries = data[day];
     if (entries && entries.length > 0) {
-      Object.entries(entries).forEach((entry) => {
+      Object.entries(entries).forEach((entry, index) => {
         const [key, value] = entry;
         // console.log(value)
-        if (value && value['RegID']) {
+        if (value && value['RegID'] && index !== entries.length-1) {
         
           if (entry.length >= 0) {
             // Make sure the entry has at least Registration ID
@@ -261,17 +261,17 @@ function formatAllSheetData(data) {
   return groupedData;
 }
 function getTotalScore(data) {
-  let result = 0;
+  let result = 0.0;
   data.forEach((item) => {
-    result = result + parseInt(item["Score"].split("/")[0].trim());
+    result = parseFloat(result) + parseFloat(item["Score"].split("/")[0].trim());
   });
-  return result;
+  return parseFloat(result);
 }
 function getCompleteScore(data) {
-  let result = 0;
+  let result = 0.0;
   if(data && data.length > 0) {
     data.forEach((item) => {
-      result = result + parseInt(item["Score"].split("/")[1]);
+      result = parseFloat(result) + parseFloat(item["Score"].split("/")[1]);
     });
   }
   return result;
