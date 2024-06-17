@@ -4,6 +4,7 @@ const express = require("express");
 const { google } = require("googleapis");
 const cors = require("cors");
 const bodyParser = require("body-parser")
+const credentials = require('./config.js'); // Adjust the path as necessary
 
 //initilize express
 const app = express();
@@ -21,7 +22,7 @@ app.use(
   })
 );
 const auth = new google.auth.GoogleAuth({
-  keyFile: "config.js",
+  credentials,
   scopes: [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/forms.body",
