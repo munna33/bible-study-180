@@ -112,9 +112,6 @@ app.put("/sheet/score/:id", async (req, res) => {
   });
   res.send(updateSheet);
 });
-// app.get('/score/id', async(req,res) => {
-
-// })
 app.get("/score/:id", async (req, res) => {
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
@@ -130,13 +127,15 @@ app.get("/score/:id", async (req, res) => {
     };
   });
   // result.splice(0,1);
-  // console.log()
-  let respData = [];
-  const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
-  respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
-    const formatData = formatAllSheetData(data);
-    res.json(formatData);
-  });
+getLastMonthData(req).then(async responseData => {
+    let respData = [];
+    const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
+    respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
+      const formatData = formatAllSheetData(data, responseData);
+      res.json(formatData);
+    });
+  })
+  
 });
 app.post("/login/:id", async(req,res) => {
   // console.log( req.body)
@@ -164,6 +163,58 @@ app.post("/login/:id", async(req,res) => {
   }))
  
 })
+app.get("/getLastMonthData/:id", async(req,res) => {
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: req.params.id,
+  });
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+  const indexes = ["Rank","Full Name","RegistrationID","Score","Total Score","No Of Days Attended"]
+  getLastMonthData(result, req,indexes).then(data => {
+    res.json(data) 
+  })
+  
+ 
+})
+async function getLastMonthData(req) {
+  const indexes = ["Rank","Full Name","RegistrationID","Score","Total Score","No Of Days Attended"]
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: '17VfDImKXCMwES1Bnwpkkm2Cr7hyJSQQpJdP3-QDvvXI' //req.params.id,
+  });
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+  // if(result && result.length > 0) {
+    let getLastMothData = {};
+    await Promise.all( 
+      result.map(async item => {
+      
+      if(item.title == "LastMonthScore") {
+        const response =  await googleSheetsInstance.spreadsheets.values.get({
+          auth, //auth object
+          spreadsheetId: '17VfDImKXCMwES1Bnwpkkm2Cr7hyJSQQpJdP3-QDvvXI', //req.params.id,
+          range: item.title,
+        });
+        
+        getLastMothData = formatRowData(indexes, response.data.values);
+      }
+    }))
+    return getLastMothData;
+  // }
+  
+  
+}
 async function login(result, req,indexes) {
   let responseData = {}
   await Promise.all(
@@ -223,14 +274,18 @@ function formatRowData(keys, data) {
 
   return result;
 }
-function formatAllSheetData(data) {
+function formatAllSheetData(data , lastMonthData) {
   const groupedData = {};
   for (const day in data) {
     const entries = data[day];
     if (entries && entries.length > 0) {
       Object.entries(entries).forEach((entry, index) => {
         const [key, value] = entry;
-        // console.log(value)
+        let lastMonthvalue = {}
+        if(lastMonthData && lastMonthData.length > 0) {
+          lastMonthvalue = lastMonthData.find(item => item.RegistrationID.toUpperCase().trim() == value["RegID"].toUpperCase().trim());
+        }
+        
         if (value && value['RegID'] && index !== entries.length-1) {
         
           if (entry.length >= 0) {
@@ -243,18 +298,29 @@ function formatAllSheetData(data) {
             } else {
               groupedData[registrationId.toUpperCase()].data.push(value);
             }
-            groupedData[registrationId.toUpperCase()]["score"] = getTotalScore(
-              groupedData[registrationId.toUpperCase()].data
-            );
-            groupedData[registrationId.toUpperCase()]["totalScore"] = getCompleteScore(
-              groupedData[registrationId.toUpperCase()].data
-            );
+          
+            let score = 0;
+            let totalScore = 0;
+            let lastMonthnoOfDays = 0
+            if(lastMonthvalue && lastMonthvalue.Score) {
+              score = parseFloat(getTotalScore(groupedData[registrationId.toUpperCase()].data)) + parseFloat(lastMonthvalue.Score);
+              totalScore = parseFloat(getCompleteScore(
+                groupedData[registrationId.toUpperCase()].data)) + parseFloat(lastMonthvalue['Total Score']);
+                lastMonthnoOfDays = parseInt(groupedData[registrationId.toUpperCase()].data.length) + parseInt(lastMonthvalue['No Of Days Attended'])
+            } else {
+              score = parseFloat(getTotalScore(groupedData[registrationId.toUpperCase()].data)) ;
+              totalScore = parseFloat(getCompleteScore(
+                groupedData[registrationId.toUpperCase()].data))
+              lastMonthnoOfDays = groupedData[registrationId.toUpperCase()].data.length;
+            }
+            groupedData[registrationId.toUpperCase()]["score"] = score;
+            groupedData[registrationId.toUpperCase()]["totalScore"] = totalScore;
             groupedData[registrationId.toUpperCase()]["fullName"] =
               value["FullName"];
             groupedData[registrationId.toUpperCase()]["registrationID"] =
               value["RegID"];
-            groupedData[registrationId.toUpperCase()]["noOfDays"] =
-              groupedData[registrationId.toUpperCase()].data.length;
+            groupedData[registrationId.toUpperCase()]["noOfDays"] = lastMonthnoOfDays;
+            groupedData[registrationId.toUpperCase()]["lastMonthScore"] =lastMonthvalue ? parseInt(lastMonthvalue.Score): 0;
           
           }
         }
@@ -326,7 +392,7 @@ app.post('/getScoreByID/:id/', async(req, res) => {
   let respData = [];
   const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
   respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
-    const formatData = formatAllSheetData(data);
+    const formatData = formatAllSheetData(data, []);
     const getUserData = getUserDataByID(req.body.regID,formatData)
     res.json(getUserData);
   });
