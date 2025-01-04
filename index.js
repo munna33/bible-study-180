@@ -97,7 +97,7 @@ app.get("/forms", async (req, res) => {
     fields: "nextPageToken, files(id, name)",
   });
   let result = driveFiles.data.files;
-  result = result.filter(item => item.name.startsWith('BS180_'));
+  // result = result.filter(item => item.name.startsWith('BS180_'));
   res.send(result);
 });
 app.put("/sheet/score/:id", async (req, res) => {
@@ -127,18 +127,23 @@ app.get("/score/:id", async (req, res) => {
     };
   });
   // result.splice(0,1);
-getLastMonthData(req).then(async responseData => {
-    let respData = [];
-    const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
-    respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
-      const formatData = formatAllSheetData(data, responseData);
-      res.json(formatData);
-    });
-  })
+// getLastMonthData(req).then(async responseData => {
+//     let respData = [];
+//     const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
+//     respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
+//       const formatData = formatAllSheetData(data, responseData);
+//       res.json(formatData);
+//     });
+//   })
+let respData = [];
+const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
+respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
+  const formatData = formatAllSheetData(data);
+  res.json(formatData);
+});
   
 });
 app.post("/login/:id", async(req,res) => {
-  // console.log( req.body)
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
@@ -156,65 +161,63 @@ app.post("/login/:id", async(req,res) => {
   let respData = [];
   const indexes = ["RegID","Name","Church","Contact","Village","Occupation","Remarks"]
   respData = await login(result, req,indexes).then((data => {
-  
-    // console.log("data",data)
 
     res.json(data)
   }))
  
 })
-app.get("/getLastMonthData/:id", async(req,res) => {
-  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
-    auth, //auth object
-    spreadsheetId: req.params.id,
-  });
-  const result = spreadsheets.data.sheets.map((item) => {
-    return {
-      title: item.properties.title,
-      sheetId: item.properties.sheetId,
-      index: item.properties.index,
-    };
-  });
-  const indexes = ["Rank","Full Name","RegistrationID","Score","Total Score","No Of Days Attended"]
-  getLastMonthData(result, req,indexes).then(data => {
-    res.json(data) 
-  })
+// app.get("/getLastMonthData/:id", async(req,res) => {
+//   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+//     auth, //auth object
+//     spreadsheetId: req.params.id,
+//   });
+//   const result = spreadsheets.data.sheets.map((item) => {
+//     return {
+//       title: item.properties.title,
+//       sheetId: item.properties.sheetId,
+//       index: item.properties.index,
+//     };
+//   });
+//   const indexes = ["Rank","Full Name","RegistrationID","Score","Total Score","No Of Days Attended"]
+//   getLastMonthData(result, req,indexes).then(data => {
+//     res.json(data) 
+//   })
   
  
-})
-async function getLastMonthData(req) {
-  const indexes = ["Rank","Full Name","RegistrationID","Score","Total Score","No Of Days Attended"]
-  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
-    auth, //auth object
-    spreadsheetId: '17VfDImKXCMwES1Bnwpkkm2Cr7hyJSQQpJdP3-QDvvXI' //req.params.id,
-  });
-  const result = spreadsheets.data.sheets.map((item) => {
-    return {
-      title: item.properties.title,
-      sheetId: item.properties.sheetId,
-      index: item.properties.index,
-    };
-  });
-  // if(result && result.length > 0) {
-    let getLastMothData = {};
-    await Promise.all( 
-      result.map(async item => {
+// })
+// async function getLastMonthData(req) {
+//   const indexes = ["Rank","Full Name","RegistrationID","Score","Total Score","No Of Days Attended"]
+//   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+//     auth, //auth object
+//     spreadsheetId: '17VfDImKXCMwES1Bnwpkkm2Cr7hyJSQQpJdP3-QDvvXI' //req.params.id, //marks sheet
+//   });
+//   const result = spreadsheets.data.sheets.map((item) => {
+//     return {
+//       title: item.properties.title,
+//       sheetId: item.properties.sheetId,
+//       index: item.properties.index,
+//     };
+//   });
+//   // if(result && result.length > 0) {
+//     let getLastMothData = {};
+//     await Promise.all( 
+//       result.map(async item => {
       
-      if(item.title == "LastMonthScore") {
-        const response =  await googleSheetsInstance.spreadsheets.values.get({
-          auth, //auth object
-          spreadsheetId: '17VfDImKXCMwES1Bnwpkkm2Cr7hyJSQQpJdP3-QDvvXI', //req.params.id,
-          range: item.title,
-        });
+//       if(item.title == "LastMonthScore") {
+//         const response =  await googleSheetsInstance.spreadsheets.values.get({
+//           auth, //auth object
+//           spreadsheetId: '17VfDImKXCMwES1Bnwpkkm2Cr7hyJSQQpJdP3-QDvvXI', //req.params.id,
+//           range: item.title,
+//         });
         
-        getLastMothData = formatRowData(indexes, response.data.values);
-      }
-    }))
-    return getLastMothData;
-  // }
+//         getLastMothData = formatRowData(indexes, response.data.values);
+//       }
+//     }))
+//     return getLastMothData;
+//   // }
   
   
-}
+// }
 async function login(result, req,indexes) {
   let responseData = {}
   await Promise.all(
