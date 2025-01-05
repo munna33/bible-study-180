@@ -373,8 +373,10 @@ app.get('/questionPaper/:id', async(req,res) => {
   });
 })
 let port = process.env.PORT || 5001
+let projectId = process.env.PROJECT_ID || 'bible-study-446706';
 app.listen(port, () => {
   console.log("server is running on", port);
+  console.log("app name:", projectId);
 });
 
 app.post('/getScoreByID/:id/', async(req, res) => {
