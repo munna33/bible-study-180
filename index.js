@@ -127,20 +127,20 @@ app.get("/score/:id", async (req, res) => {
     };
   });
   // result.splice(0,1);
-// getLastMonthData(req).then(async responseData => {
-//     let respData = [];
-//     const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
-//     respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
-//       const formatData = formatAllSheetData(data, responseData);
-//       res.json(formatData);
-//     });
-//   })
-let respData = [];
-const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
-respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
-  const formatData = formatAllSheetData(data);
-  res.json(formatData);
-});
+getLastMonthData(req).then(async responseData => {
+    let respData = [];
+    const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
+    respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
+      const formatData = formatAllSheetData(data, responseData);
+      res.json(formatData);
+    });
+  })
+// let respData = [];
+// const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
+// respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
+//   const formatData = formatAllSheetData(data);
+//   res.json(formatData);
+// });
   
 });
 app.post("/login/:id", async(req,res) => {
@@ -166,58 +166,58 @@ app.post("/login/:id", async(req,res) => {
   }))
  
 })
-// app.get("/getLastMonthData/:id", async(req,res) => {
-//   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
-//     auth, //auth object
-//     spreadsheetId: req.params.id,
-//   });
-//   const result = spreadsheets.data.sheets.map((item) => {
-//     return {
-//       title: item.properties.title,
-//       sheetId: item.properties.sheetId,
-//       index: item.properties.index,
-//     };
-//   });
-//   const indexes = ["Rank","Full Name","RegistrationID","Score","Total Score","No Of Days Attended"]
-//   getLastMonthData(result, req,indexes).then(data => {
-//     res.json(data) 
-//   })
+app.get("/getLastMonthData/:id", async(req,res) => {
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: req.params.id,
+  });
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+  const indexes = ["Rank","Full Name","RegistrationID","Score","Total Score","No Of Days Attended"]
+  getLastMonthData(result, req,indexes).then(data => {
+    res.json(data) 
+  })
   
  
-// })
-// async function getLastMonthData(req) {
-//   const indexes = ["Rank","Full Name","RegistrationID","Score","Total Score","No Of Days Attended"]
-//   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
-//     auth, //auth object
-//     spreadsheetId: '17VfDImKXCMwES1Bnwpkkm2Cr7hyJSQQpJdP3-QDvvXI' //req.params.id, //marks sheet
-//   });
-//   const result = spreadsheets.data.sheets.map((item) => {
-//     return {
-//       title: item.properties.title,
-//       sheetId: item.properties.sheetId,
-//       index: item.properties.index,
-//     };
-//   });
-//   // if(result && result.length > 0) {
-//     let getLastMothData = {};
-//     await Promise.all( 
-//       result.map(async item => {
+})
+async function getLastMonthData(req) {
+  const indexes = ["Rank","Full Name","RegistrationID","Score","Total Score","No Of Days Attended"]
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: '1RatZn8cZzgDk15xFQ9Azrv1FZTPJPMw2nQMlWxCDwVQ' //req.params.id, //marks sheet
+  });
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+  // if(result && result.length > 0) {
+    let getLastMothData = {};
+    await Promise.all( 
+      result.map(async item => {
       
-//       if(item.title == "LastMonthScore") {
-//         const response =  await googleSheetsInstance.spreadsheets.values.get({
-//           auth, //auth object
-//           spreadsheetId: '17VfDImKXCMwES1Bnwpkkm2Cr7hyJSQQpJdP3-QDvvXI', //req.params.id,
-//           range: item.title,
-//         });
+      if(item.title == "LastMonthScore") {
+        const response =  await googleSheetsInstance.spreadsheets.values.get({
+          auth, //auth object
+          spreadsheetId: '1RatZn8cZzgDk15xFQ9Azrv1FZTPJPMw2nQMlWxCDwVQ', //req.params.id,
+          range: item.title,
+        });
         
-//         getLastMothData = formatRowData(indexes, response.data.values);
-//       }
-//     }))
-//     return getLastMothData;
-//   // }
+        getLastMothData = formatRowData(indexes, response.data.values);
+      }
+    }))
+    return getLastMothData;
+  // }
   
   
-// }
+}
 async function login(result, req,indexes) {
   let responseData = {}
   await Promise.all(
@@ -401,6 +401,195 @@ app.post('/getScoreByID/:id/', async(req, res) => {
     res.json(getUserData);
   });
 })
+app.get('/getOnlineQuiz/:id', async(req, res) => {
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: req.params.id,
+  });
+
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+  let responseData = [];
+  const indexes = ["QNO", "Question", "Options", "Answer", "Reference"]
+  responseData = getAllQuizData(result, req, indexes).then(data => {
+    res.json(data)
+  })
+
+})
+async function getAllQuizData(result, req, indexes) { 
+  let responseData = {};
+  //   return await new Promise((resolve, reject) => {
+  await Promise.all(
+    result.map(async (item) => {
+      // if (item.title !== "Registrations" && item.title !== "B180_Registrations") {
+
+        const allSpreadSheetData =
+          await googleSheetsInstance.spreadsheets.values.get({
+            auth, //auth object
+            spreadsheetId: req.params.id,
+            range: item.title,
+          });
+        responseData[item.title] = formatRowData(indexes,
+          allSpreadSheetData.data.values
+        );
+        // responseData[item.title] = allSpreadSheetData.data.values;
+      // }
+    })
+    
+  );
+  return responseData;
+}
 function getUserDataByID(userID, data) {
   return {userData: data[userID]};
 }
+
+app.post('/submitQuiz/:id', async(req, res) => {
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: req.params.id,
+  });
+
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+  insertData(req,req.body["Quiz ID"].trim()).then(data => {
+    if(data) {
+      res.json({message: 'Quiz submitted successfully'})
+    } else {
+      res.json({message: 'Something went wrong. Please try again!'})
+    }
+  })
+})
+
+app.get('/quizDetails/:id', async(req,res)=> {
+  
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: req.params.id,
+  });
+
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+
+  getQuizSheetsData(result,req,res).then(data => {
+    res.json(data)
+  });
+  // res.json(this.getQuizSheetsData) ;
+} )
+ async function getQuizSheetsData(result,req,res) {
+  let responseData = {};
+  await Promise.all(
+   result.map(async (item) => {
+    const allSpreadSheetData =
+    await googleSheetsInstance.spreadsheets.values.get({
+      auth, //auth object
+      spreadsheetId: req.params.id,
+      range: item.title,
+    });
+    // console.log("****",allSpreadSheetData.data)
+  responseData[item.title] = formatRowData(allSpreadSheetData.data.values[0],
+    allSpreadSheetData.data.values
+  );
+  })
+)
+  // res.json(responseData) ;
+  return responseData;
+}
+async function insertData(req, sheet) {
+  // console.log('sheet name', sheet)
+  const spreadsheetId = req.params.id;
+  let sheetName = sheet?.replace(/'/g, "\\'"); // Escape single quotes
+  const headers = Object.keys(req.body);
+  const columnCount = headers.length;
+  const lastColumnLetter = String.fromCharCode(64 + columnCount);
+  
+  const googleSheets = googleSheetsInstance.spreadsheets;
+  try {
+    // Fetch existing sheets
+    const sheetsResponse = await googleSheets.get({ auth, spreadsheetId });
+    const existingSheets = sheetsResponse.data.sheets.map(s => s.properties.title);
+    
+    // Create sheet if it does not exist
+    if (!existingSheets.includes(sheetName)) {
+      await googleSheets.batchUpdate({
+        auth,
+        spreadsheetId,
+        resource: {
+          requests: [{
+            addSheet: {
+              properties: { title: sheetName }
+            }
+          }]
+        }
+      });
+      // console.log(`Sheet '${sheetName}' created.`);
+    }
+    
+    // Define header range
+    const headerRange = `'${sheetName}'!A1:${lastColumnLetter}1`;
+    const headerResource = { values: [headers] };
+    
+    // Check if headers are already present
+    const existingHeaders = await googleSheets.values.get({
+      auth,
+      spreadsheetId,
+      range: headerRange,
+    }).catch(() => null);
+
+    if (!existingHeaders?.data?.values || existingHeaders.data.values[0].some(cell => cell === "")) {
+      await googleSheets.values.update({
+        auth,
+        spreadsheetId,
+        range: headerRange,
+        valueInputOption: "RAW",
+        resource: headerResource
+      });
+      console.log("Headers inserted:", headers);
+    } else {
+      console.log("Headers already present.");
+    }
+    
+    // Determine next available row
+    const data = await googleSheets.values.get({
+      auth,
+      spreadsheetId,
+      range: `'${sheetName}'!A:A`,
+    }).catch(() => null);
+    
+    const nextRow = data?.data?.values ? data.data.values.length + 1 : 2;
+    const range = `'${sheetName}'!A${nextRow}:${lastColumnLetter}${nextRow}`;
+    
+    const values = [Object.values(req.body)];
+    // console.log("Values to Insert:", values);
+    
+    // Insert data
+    const response = await googleSheets.values.update({
+      auth,
+      spreadsheetId,
+      range,
+      valueInputOption: "RAW",
+      resource: { values },
+    });
+
+    console.log("Data inserted:", response.data);
+    return true;
+  } catch (error) {
+    console.error("Error inserting data:", error);
+    return false;
+  }
+}
+
