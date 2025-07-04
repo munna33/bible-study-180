@@ -3,18 +3,17 @@ const express = require("express");
 //googleapis
 const { google } = require("googleapis");
 const cors = require("cors");
-const bodyParser = require("body-parser")
-const credentials  = require("./config.js") ;
+const bodyParser = require("body-parser");
+const credentials = require("./config.js");
 
 //initilize express
 const app = express();
 app.use(express.json());
 app.use(
   bodyParser.urlencoded({
-      extended: true
+    extended: true,
   })
 );
-
 
 app.use(
   cors({
@@ -127,23 +126,31 @@ app.get("/score/:id", async (req, res) => {
     };
   });
   // result.splice(0,1);
-getLastMonthData(req).then(async responseData => {
+  getLastMonthData(req).then(async (responseData) => {
     let respData = [];
-    const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
-    respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
-      const formatData = formatAllSheetData(data, responseData);
-      res.json(formatData);
-    });
-  })
-// let respData = [];
-// const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
-// respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
-//   const formatData = formatAllSheetData(data);
-//   res.json(formatData);
-// });
-  
+    const indexes = [
+      "Date",
+      "Score",
+      "FullName",
+      "RegID",
+      "Answer",
+      "Reference",
+    ];
+    respData = await getAllSpreadsheetData(result, req, indexes).then(
+      (data) => {
+        const formatData = formatAllSheetData(data, responseData);
+        res.json(formatData);
+      }
+    );
+  });
+  // let respData = [];
+  // const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
+  // respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
+  //   const formatData = formatAllSheetData(data);
+  //   res.json(formatData);
+  // });
 });
-app.post("/login/:id", async(req,res) => {
+app.post("/login/:id", async (req, res) => {
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
@@ -159,14 +166,20 @@ app.post("/login/:id", async(req,res) => {
   });
   // result.splice(0,1);
   let respData = [];
-  const indexes = ["RegID","Name","Church","Contact","Village","Occupation","Remarks"]
-  respData = await login(result, req,indexes).then((data => {
-
-    res.json(data)
-  }))
- 
-})
-app.get("/getLastMonthData/:id", async(req,res) => {
+  const indexes = [
+    "RegID",
+    "Name",
+    "Church",
+    "Contact",
+    "Village",
+    "Occupation",
+    "Remarks",
+  ];
+  respData = await login(result, req, indexes).then((data) => {
+    res.json(data);
+  });
+});
+app.get("/getLastMonthData/:id", async (req, res) => {
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
@@ -178,18 +191,30 @@ app.get("/getLastMonthData/:id", async(req,res) => {
       index: item.properties.index,
     };
   });
-  const indexes = ["Rank","Full Name","RegistrationID","Score","Total Score","No Of Days Attended"]
-  getLastMonthData(result, req,indexes).then(data => {
-    res.json(data) 
-  })
-  
- 
-})
+  const indexes = [
+    "Rank",
+    "Full Name",
+    "RegistrationID",
+    "Score",
+    "Total Score",
+    "No Of Days Attended",
+  ];
+  getLastMonthData(result, req, indexes).then((data) => {
+    res.json(data);
+  });
+});
 async function getLastMonthData(req) {
-  const indexes = ["Rank","Full Name","RegistrationID","Score","Total Score","No Of Days Attended"]
+  const indexes = [
+    "Rank",
+    "Full Name",
+    "RegistrationID",
+    "Score",
+    "Total Score",
+    "No Of Days Attended",
+  ];
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
-    spreadsheetId: '1RatZn8cZzgDk15xFQ9Azrv1FZTPJPMw2nQMlWxCDwVQ' //req.params.id, //marks sheet
+    spreadsheetId: "1RatZn8cZzgDk15xFQ9Azrv1FZTPJPMw2nQMlWxCDwVQ", //req.params.id, //marks sheet
   });
   const result = spreadsheets.data.sheets.map((item) => {
     return {
@@ -199,43 +224,45 @@ async function getLastMonthData(req) {
     };
   });
   // if(result && result.length > 0) {
-    let getLastMothData = {};
-    await Promise.all( 
-      result.map(async item => {
-      
-      if(item.title == "LastMonthScore") {
-        const response =  await googleSheetsInstance.spreadsheets.values.get({
-          auth, //auth object
-          spreadsheetId: '1RatZn8cZzgDk15xFQ9Azrv1FZTPJPMw2nQMlWxCDwVQ', //req.params.id,
-          range: item.title,
-        });
-        
-        getLastMothData = formatRowData(indexes, response.data.values);
-      }
-    }))
-    return getLastMothData;
-  // }
-  
-  
-}
-async function login(result, req,indexes) {
-  let responseData = {}
+  let getLastMothData = {};
   await Promise.all(
     result.map(async (item) => {
-      if(item.title === "B180_Registrations"){
-        const allSpreadSheetData =
-        await googleSheetsInstance.spreadsheets.values.get({
+      if (item.title == "LastMonthScore") {
+        const response = await googleSheetsInstance.spreadsheets.values.get({
           auth, //auth object
-          spreadsheetId: req.params.id,
+          spreadsheetId: "1RatZn8cZzgDk15xFQ9Azrv1FZTPJPMw2nQMlWxCDwVQ", //req.params.id,
           range: item.title,
         });
-       const userDetails = formatRowData(indexes,
+
+        getLastMothData = formatRowData(indexes, response.data.values);
+      }
+    })
+  );
+  return getLastMothData;
+  // }
+}
+async function login(result, req, indexes) {
+  let responseData = {};
+  await Promise.all(
+    result.map(async (item) => {
+      if (item.title === "B180_Registrations") {
+        const allSpreadSheetData =
+          await googleSheetsInstance.spreadsheets.values.get({
+            auth, //auth object
+            spreadsheetId: req.params.id,
+            range: item.title,
+          });
+        const userDetails = formatRowData(
+          indexes,
           allSpreadSheetData.data.values
         );
         // console.log('req', req.body)
-        responseData['user'] = userDetails.find(item => item.RegID === req.body.regID )
+        responseData["user"] = userDetails.find(
+          (item) => item.RegID === req.body.regID
+        );
       }
-    }))
+    })
+  );
   return responseData;
 }
 async function getAllSpreadsheetData(result, req, indexes) {
@@ -243,21 +270,23 @@ async function getAllSpreadsheetData(result, req, indexes) {
   //   return await new Promise((resolve, reject) => {
   await Promise.all(
     result.map(async (item) => {
-      if (item.title !== "Registrations" && item.title !== "B180_Registrations") {
-
+      if (
+        item.title !== "Registrations" &&
+        item.title !== "B180_Registrations"
+      ) {
         const allSpreadSheetData =
           await googleSheetsInstance.spreadsheets.values.get({
             auth, //auth object
             spreadsheetId: req.params.id,
             range: item.title,
           });
-        responseData[item.title] = formatRowData(indexes,
+        responseData[item.title] = formatRowData(
+          indexes,
           allSpreadSheetData.data.values
         );
         // responseData[item.title] = allSpreadSheetData.data.values;
       }
     })
-    
   );
   return responseData;
 }
@@ -277,54 +306,72 @@ function formatRowData(keys, data) {
 
   return result;
 }
-function formatAllSheetData(data , lastMonthData) {
+function formatAllSheetData(data, lastMonthData) {
   const groupedData = {};
   for (const day in data) {
     const entries = data[day];
     if (entries && entries.length > 0) {
       Object.entries(entries).forEach((entry, index) => {
         const [key, value] = entry;
-        let lastMonthvalue = {}
-        if(lastMonthData && lastMonthData.length > 0) {
-          lastMonthvalue = lastMonthData.find(item => item.RegistrationID.toUpperCase().trim() == value["RegID"].toUpperCase().trim());
+        let lastMonthvalue = {};
+        if (lastMonthData && lastMonthData.length > 0) {
+          lastMonthvalue = lastMonthData.find(
+            (item) =>
+              item.RegistrationID.toUpperCase().trim() ==
+              value["RegID"].toUpperCase().trim()
+          );
         }
-        
-        if (value && value['RegID'] && index !== entries.length-1) {
-        
+
+        if (value && value["RegID"] && index !== entries.length - 1) {
           if (entry.length >= 0) {
             // Make sure the entry has at least Registration ID
             const registrationId = value["RegID"].trim(); // Assuming Registration ID is at index 2
-            value['Day'] = day;
+            value["Day"] = day;
             if (!groupedData[registrationId.toUpperCase()]) {
-              
               groupedData[registrationId.toUpperCase()] = { data: [value] };
             } else {
               groupedData[registrationId.toUpperCase()].data.push(value);
             }
-          
+
             let score = 0;
             let totalScore = 0;
-            let lastMonthnoOfDays = 0
-            if(lastMonthvalue && lastMonthvalue.Score) {
-              score = parseFloat(getTotalScore(groupedData[registrationId.toUpperCase()].data)) + parseFloat(lastMonthvalue.Score);
-              totalScore = parseFloat(getCompleteScore(
-                groupedData[registrationId.toUpperCase()].data)) + parseFloat(lastMonthvalue['Total Score']);
-                lastMonthnoOfDays = parseInt(groupedData[registrationId.toUpperCase()].data.length) + parseInt(lastMonthvalue['No Of Days Attended'])
+            let lastMonthnoOfDays = 0;
+            if (lastMonthvalue && lastMonthvalue.Score) {
+              score =
+                parseFloat(
+                  getTotalScore(groupedData[registrationId.toUpperCase()].data)
+                ) + parseFloat(lastMonthvalue.Score);
+              totalScore =
+                parseFloat(
+                  getCompleteScore(
+                    groupedData[registrationId.toUpperCase()].data
+                  )
+                ) + parseFloat(lastMonthvalue["Total Score"]);
+              lastMonthnoOfDays =
+                parseInt(
+                  groupedData[registrationId.toUpperCase()].data.length
+                ) + parseInt(lastMonthvalue["No Of Days Attended"]);
             } else {
-              score = parseFloat(getTotalScore(groupedData[registrationId.toUpperCase()].data)) ;
-              totalScore = parseFloat(getCompleteScore(
-                groupedData[registrationId.toUpperCase()].data))
-              lastMonthnoOfDays = groupedData[registrationId.toUpperCase()].data.length;
+              score = parseFloat(
+                getTotalScore(groupedData[registrationId.toUpperCase()].data)
+              );
+              totalScore = parseFloat(
+                getCompleteScore(groupedData[registrationId.toUpperCase()].data)
+              );
+              lastMonthnoOfDays =
+                groupedData[registrationId.toUpperCase()].data.length;
             }
             groupedData[registrationId.toUpperCase()]["score"] = score;
-            groupedData[registrationId.toUpperCase()]["totalScore"] = totalScore;
+            groupedData[registrationId.toUpperCase()]["totalScore"] =
+              totalScore;
             groupedData[registrationId.toUpperCase()]["fullName"] =
               value["FullName"];
             groupedData[registrationId.toUpperCase()]["registrationID"] =
               value["RegID"];
-            groupedData[registrationId.toUpperCase()]["noOfDays"] = lastMonthnoOfDays;
-            groupedData[registrationId.toUpperCase()]["lastMonthScore"] =lastMonthvalue ? parseInt(lastMonthvalue.Score): 0;
-          
+            groupedData[registrationId.toUpperCase()]["noOfDays"] =
+              lastMonthnoOfDays;
+            groupedData[registrationId.toUpperCase()]["lastMonthScore"] =
+              lastMonthvalue ? parseInt(lastMonthvalue.Score) : 0;
           }
         }
       });
@@ -335,13 +382,14 @@ function formatAllSheetData(data , lastMonthData) {
 function getTotalScore(data) {
   let result = 0.0;
   data.forEach((item) => {
-    result = parseFloat(result) + parseFloat(item["Score"].split("/")[0].trim());
+    result =
+      parseFloat(result) + parseFloat(item["Score"].split("/")[0].trim());
   });
   return parseFloat(result);
 }
 function getCompleteScore(data) {
   let result = 0.0;
-  if(data && data.length > 0) {
+  if (data && data.length > 0) {
     data.forEach((item) => {
       result = parseFloat(result) + parseFloat(item["Score"].split("/")[1]);
     });
@@ -349,7 +397,7 @@ function getCompleteScore(data) {
   return result;
 }
 
-app.get('/questionPaper/:id', async(req,res) => {
+app.get("/questionPaper/:id", async (req, res) => {
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
@@ -365,20 +413,20 @@ app.get('/questionPaper/:id', async(req,res) => {
   });
   // result.splice(0,1);
   let respData = [];
-  const indexes = ["QNO", "Question", "Answer", "Reference", "Options"]
+  const indexes = ["QNO", "Question", "Answer", "Reference", "Options"];
   respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
-  //   const formatData = formatAllSheetData(data);
-  //   res.json(formatData);
-  res.json(data)
+    //   const formatData = formatAllSheetData(data);
+    //   res.json(formatData);
+    res.json(data);
   });
-})
-let port = process.env.PORT || 5001
-let projectId = process.env.PROJECT_ID || 'bible-study-446706';
+});
+let port = process.env.PORT || 5001;
+let projectId = process.env.PROJECT_ID || "bible-study-446706";
 app.listen(port, () => {
   console.log("server is running on", port);
 });
 
-app.post('/getScoreByID/:id/', async(req, res) => {
+app.post("/getScoreByID/:id/", async (req, res) => {
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
@@ -394,14 +442,14 @@ app.post('/getScoreByID/:id/', async(req, res) => {
   });
   // result.splice(0,1);
   let respData = [];
-  const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
+  const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"];
   respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
     const formatData = formatAllSheetData(data, []);
-    const getUserData = getUserDataByID(req.body.regID,formatData)
+    const getUserData = getUserDataByID(req.body.regID, formatData);
     res.json(getUserData);
   });
-})
-app.get('/getOnlineQuiz/:id', async(req, res) => {
+});
+app.get("/getOnlineQuiz/:id", async (req, res) => {
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
@@ -415,41 +463,56 @@ app.get('/getOnlineQuiz/:id', async(req, res) => {
     };
   });
   let responseData = [];
-  const indexes = ["QNO", "Question", "Options", "Answer", "Reference"]
-  responseData = getAllQuizData(result, req, indexes).then(data => {
-    res.json(data)
-  })
+  const indexes = [
+    "BookNo",
+    "QNO",
+    "Question",
+    "Options",
+    "Answer",
+    "Reference",
+    "Book Name",
+    "Level"
+  ];
+  responseData = getAllQuizData(result, req, indexes).then((data) => {
+    // res.json(data);
+    const exmaNames = Object.keys(data);
+    let randomQuestionsData = {};
+    exmaNames.forEach((item) => {
+      randomQuestionsData[item] = randomQuestions(data, item);
+    });
 
-})
-async function getAllQuizData(result, req, indexes) { 
+    res.json(randomQuestionsData) ;
+    // return randomQuestionsData;
+  });
+});
+async function getAllQuizData(result, req, indexes) {
   let responseData = {};
   //   return await new Promise((resolve, reject) => {
   await Promise.all(
     result.map(async (item) => {
       // if (item.title !== "Registrations" && item.title !== "B180_Registrations") {
 
-        const allSpreadSheetData =
-          await googleSheetsInstance.spreadsheets.values.get({
-            auth, //auth object
-            spreadsheetId: req.params.id,
-            range: item.title,
-          });
-        responseData[item.title] = formatRowData(indexes,
-          allSpreadSheetData.data.values
-        );
-        // responseData[item.title] = allSpreadSheetData.data.values;
+      const allSpreadSheetData =
+        await googleSheetsInstance.spreadsheets.values.get({
+          auth, //auth object
+          spreadsheetId: req.params.id,
+          range: item.title,
+        });
+      responseData[item.title] = formatRowData(
+        indexes,
+        allSpreadSheetData.data.values
+      );
+      // responseData[item.title] = allSpreadSheetData.data.values;
       // }
     })
-    
   );
   return responseData;
 }
 function getUserDataByID(userID, data) {
-  return {userData: data[userID]};
+  return { userData: data[userID] };
 }
-
-app.post('/submitQuiz/:id', async(req, res) => {
-  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+app.post("/quiz/track/:id", async(req,res)=> {
+const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
   });
@@ -461,17 +524,55 @@ app.post('/submitQuiz/:id', async(req, res) => {
       index: item.properties.index,
     };
   });
-  insertData(req,req.body["Quiz ID"].trim()).then(data => {
-    if(data) {
-      res.json({message: 'Quiz submitted successfully'})
+  insertData(req, req.body["Quiz ID"].trim()).then((data) => {
+    if (data) {
+      res.json({ message: "Quiz submitted successfully" });
     } else {
-      res.json({message: 'Something went wrong. Please try again!'})
+      res.json({ message: "Something went wrong. Please try again!" });
     }
-  })
+  });
 })
+app.get("/quiz/track/getDetails/:id", async(req, res) => {
+   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: req.params.id,
+  });
 
-app.get('/quizDetails/:id', async(req,res)=> {
-  
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+
+  getQuizSheetsData(result, req, res).then((data) => {
+    res.json(data);
+  });
+})
+app.post("/submitQuiz/:id", async (req, res) => {
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: req.params.id,
+  });
+
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+  insertData(req, req.body["Quiz ID"].trim()).then((data) => {
+    if (data) {
+      res.json({ message: "Quiz submitted successfully" });
+    } else {
+      res.json({ message: "Something went wrong. Please try again!" });
+    }
+  });
+});
+
+app.get("/quizDetails/:id", async (req, res) => {
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
@@ -485,29 +586,69 @@ app.get('/quizDetails/:id', async(req,res)=> {
     };
   });
 
-  getQuizSheetsData(result,req,res).then(data => {
-    res.json(data)
+  getQuizSheetsData(result, req, res).then((data) => {
+    res.json(data);
   });
   // res.json(this.getQuizSheetsData) ;
-} )
- async function getQuizSheetsData(result,req,res) {
+});
+async function getQuizSheetsData(result, req, res) {
   let responseData = {};
   await Promise.all(
-   result.map(async (item) => {
-    const allSpreadSheetData =
-    await googleSheetsInstance.spreadsheets.values.get({
-      auth, //auth object
-      spreadsheetId: req.params.id,
-      range: item.title,
-    });
-    // console.log("****",allSpreadSheetData.data)
-  responseData[item.title] = formatRowData(allSpreadSheetData.data.values[0],
-    allSpreadSheetData.data.values
+    result.map(async (item) => {
+      const allSpreadSheetData =
+        await googleSheetsInstance.spreadsheets.values.get({
+          auth, //auth object
+          spreadsheetId: req.params.id,
+          range: item.title,
+        });
+      // console.log("****",allSpreadSheetData.data)
+     
+      if (
+        allSpreadSheetData.data.values &&
+        allSpreadSheetData.data.values.length > 0
+      ) {
+        responseData[item.title] = formatRowData(
+          allSpreadSheetData.data.values[0],
+          allSpreadSheetData.data.values
+        );
+      }
+    })
   );
-  })
-)
-  // res.json(responseData) ;
-  return responseData;
+return responseData;
+}
+ function randomQuestions(spreadsheetData, item) {
+    const groupedByBookName = spreadsheetData[item].reduce((acc, item) => {
+      const key =item['Book Name'];
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(item);
+      return acc;
+    }, {});
+    // console.log('groupedBy 0', groupedByBookName)
+    let result = []
+    let lowLevelItems = []
+    for(const key in groupedByBookName) {
+      if(groupedByBookName.hasOwnProperty(key)){
+        let randomItem = groupedByBookName[key].filter(item => item.Level == 'H')
+       randomItem = randomItem[Math.floor(Math.random() * randomItem.length)];
+       lowLevelItems = [...lowLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'M')))
+        result.push(randomItem);
+      }
+    }
+    console.log('result', result)
+    result = ammendLowLevelQuestions(result, lowLevelItems,item== 'Online Exam 1' ? 11 : 3 )
+    return result;
+  }
+function ammendLowLevelQuestions(highQuestions, lowQuestions, size) {
+  let copy = [...lowQuestions];
+  let result = [];
+
+  for (let i = 0; i < size; i++) {
+    const index = Math.floor(Math.random() * copy.length);
+    result.push(copy.splice(index, 1)[0]); // remove and push
+  }
+  return highQuestions.concat(result);
 }
 async function insertData(req, sheet) {
   // console.log('sheet name', sheet)
@@ -515,67 +656,79 @@ async function insertData(req, sheet) {
   let sheetName = sheet?.replace(/'/g, "\\'"); // Escape single quotes
   const headers = Object.keys(req.body);
   const columnCount = headers.length;
-  const lastColumnLetter = String.fromCharCode(64 + columnCount);
-  
+  // const lastColumnLetter = String.fromCharCode(64 + columnCount);
+  const lastColumnLetter = getExcelColumnName(columnCount+5);
+
   const googleSheets = googleSheetsInstance.spreadsheets;
   try {
     // Fetch existing sheets
     const sheetsResponse = await googleSheets.get({ auth, spreadsheetId });
-    const existingSheets = sheetsResponse.data.sheets.map(s => s.properties.title);
-    
+    const existingSheets = sheetsResponse.data.sheets.map(
+      (s) => s.properties.title
+    );
+
     // Create sheet if it does not exist
     if (!existingSheets.includes(sheetName)) {
       await googleSheets.batchUpdate({
         auth,
         spreadsheetId,
         resource: {
-          requests: [{
-            addSheet: {
-              properties: { title: sheetName }
-            }
-          }]
-        }
+          requests: [
+            {
+              addSheet: {
+                properties: { title: sheetName },
+              },
+            },
+          ],
+        },
       });
       // console.log(`Sheet '${sheetName}' created.`);
     }
-    
+
     // Define header range
     const headerRange = `'${sheetName}'!A1:${lastColumnLetter}1`;
     const headerResource = { values: [headers] };
-    
-    // Check if headers are already present
-    const existingHeaders = await googleSheets.values.get({
-      auth,
-      spreadsheetId,
-      range: headerRange,
-    }).catch(() => null);
 
-    if (!existingHeaders?.data?.values || existingHeaders.data.values[0].some(cell => cell === "")) {
+    // Check if headers are already present
+    const existingHeaders = await googleSheets.values
+      .get({
+        auth,
+        spreadsheetId,
+        range: headerRange,
+      })
+      .catch(() => null);
+
+    if (
+      !existingHeaders?.data?.values ||
+      existingHeaders.data.values[0].some((cell) => cell === "")
+    ) {
       await googleSheets.values.update({
         auth,
         spreadsheetId,
         range: headerRange,
         valueInputOption: "RAW",
-        resource: headerResource
+        resource: headerResource,
       });
       console.log("Headers inserted:", headers);
     } else {
       console.log("Headers already present.");
     }
-    
+
     // Determine next available row
-    const data = await googleSheets.values.get({
-      auth,
-      spreadsheetId,
-      range: `'${sheetName}'!A:A`,
-    }).catch(() => null);
-    
+    const data = await googleSheets.values
+      .get({
+        auth,
+        spreadsheetId,
+        range: `'${sheetName}'!A:A`,
+      })
+      .catch(() => null);
+
     const nextRow = data?.data?.values ? data.data.values.length + 1 : 2;
     const range = `'${sheetName}'!A${nextRow}:${lastColumnLetter}${nextRow}`;
-    
+
     const values = [Object.values(req.body)];
     // console.log("Values to Insert:", values);
-    
+
     // Insert data
     const response = await googleSheets.values.update({
       auth,
@@ -592,4 +745,12 @@ async function insertData(req, sheet) {
     return false;
   }
 }
-
+function getExcelColumnName(n) {
+    let columnName = '';
+    while (n > 0) {
+        let rem = (n - 1) % 26;
+        columnName = String.fromCharCode(65 + rem) + columnName;
+        n = Math.floor((n - 1) / 26);
+    }
+    return columnName;
+}
