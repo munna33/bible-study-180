@@ -636,7 +636,7 @@ return responseData;
         result.push(randomItem);
       }
     }
-    console.log('result', result)
+    // console.log('result', result)
     result = ammendLowLevelQuestions(result, lowLevelItems,item== 'Online Exam 1' ? 11 : 3 )
     return result;
   }
@@ -738,7 +738,7 @@ async function insertData(req, sheet) {
       resource: { values },
     });
 
-    console.log("Data inserted:", response.data);
+    // console.log("Data inserted:", response.data);
     return true;
   } catch (error) {
     console.error("Error inserting data:", error);
