@@ -126,29 +126,29 @@ app.get("/score/:id", async (req, res) => {
     };
   });
   // result.splice(0,1);
-  getLastMonthData(req).then(async (responseData) => {
-    let respData = [];
-    const indexes = [
-      "Date",
-      "Score",
-      "FullName",
-      "RegID",
-      "Answer",
-      "Reference",
-    ];
-    respData = await getAllSpreadsheetData(result, req, indexes).then(
-      (data) => {
-        const formatData = formatAllSheetData(data, responseData);
-        res.json(formatData);
-      }
-    );
-  });
-  // let respData = [];
-  // const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
-  // respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
-  //   const formatData = formatAllSheetData(data);
-  //   res.json(formatData);
+  // getLastMonthData(req).then(async (responseData) => {
+  //   let respData = [];
+  //   const indexes = [
+  //     "Date",
+  //     "Score",
+  //     "FullName",
+  //     "RegID",
+  //     "Answer",
+  //     "Reference",
+  //   ];
+  //   respData = await getAllSpreadsheetData(result, req, indexes).then(
+  //     (data) => {
+  //       const formatData = formatAllSheetData(data, responseData);
+  //       res.json(formatData);
+  //     }
+  //   );
   // });
+  let respData = [];
+  const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
+  respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
+    const formatData = formatAllSheetData(data);
+    res.json(formatData);
+  });
 });
 app.post("/login/:id", async (req, res) => {
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
@@ -243,9 +243,10 @@ async function getLastMonthData(req) {
 }
 async function login(result, req, indexes) {
   let responseData = {};
+  const groupName = req.body.appType === 'NEW' ? "New Testament": "Old_New Testament";
   await Promise.all(
     result.map(async (item) => {
-      if (item.title === "B180_Registrations") {
+      if (item.title === groupName) {
         const allSpreadSheetData =
           await googleSheetsInstance.spreadsheets.values.get({
             auth, //auth object
@@ -258,12 +259,12 @@ async function login(result, req, indexes) {
         );
         // console.log('req', req.body)
         responseData["user"] = userDetails.find(
-          (item) => item.RegID === req.body.regID
+          (item) => item.RegID.trim().toLowerCase() === req.body.regID.trim().toLowerCase()
         );
       }
     })
   );
-  return responseData;
+   return responseData;
 }
 async function getAllSpreadsheetData(result, req, indexes) {
   let responseData = {};
