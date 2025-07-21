@@ -465,15 +465,22 @@ app.get("/getOnlineQuiz/:id", async (req, res) => {
   });
   let responseData = [];
   const indexes = [
-    "BookNo",
     "QNO",
     "Question",
     "Options",
     "Answer",
-    "Reference",
-    "Book Name",
-    "Level"
+    "Reference"
   ];
+  // const indexes = [
+  //   "BookNo",
+  //   "QNO",
+  //   "Question",
+  //   "Options",
+  //   "Answer",
+  //   "Reference",
+  //   "Book Name",
+  //   "Level"
+  // ];
   responseData = getAllQuizData(result, req, indexes).then((data) => {
     // res.json(data);
     const exmaNames = Object.keys(data);
@@ -618,28 +625,29 @@ async function getQuizSheetsData(result, req, res) {
 return responseData;
 }
  function randomQuestions(spreadsheetData, item) {
-    const groupedByBookName = spreadsheetData[item].reduce((acc, item) => {
-      const key =item['Book Name'];
-      if (!acc[key]) {
-        acc[key] = [];
-      }
-      acc[key].push(item);
-      return acc;
-    }, {});
-    // console.log('groupedBy 0', groupedByBookName)
-    let result = []
-    let lowLevelItems = []
-    for(const key in groupedByBookName) {
-      if(groupedByBookName.hasOwnProperty(key)){
-        let randomItem = groupedByBookName[key].filter(item => item.Level == 'H')
-       randomItem = randomItem[Math.floor(Math.random() * randomItem.length)];
-       lowLevelItems = [...lowLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'M')))
-        result.push(randomItem);
-      }
-    }
-    // console.log('result', result)
-    result = ammendLowLevelQuestions(result, lowLevelItems,item== 'Online Exam 1' ? 11 : 3 )
-    return result;
+    // const groupedByBookName = spreadsheetData[item].reduce((acc, item) => {
+    //   const key =item['Book Name'];
+    //   if (!acc[key]) {
+    //     acc[key] = [];
+    //   }
+    //   acc[key].push(item);
+    //   return acc;
+    // }, {});
+    // // console.log('groupedBy 0', groupedByBookName)
+    // let result = []
+    // let lowLevelItems = []
+    // for(const key in groupedByBookName) {
+    //   if(groupedByBookName.hasOwnProperty(key)){
+    //     let randomItem = groupedByBookName[key].filter(item => item.Level == 'H')
+    //    randomItem = randomItem[Math.floor(Math.random() * randomItem.length)];
+    //    lowLevelItems = [...lowLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'M')))
+    //     result.push(randomItem);
+    //   }
+    // }
+    // // console.log('result', result)
+    // result = ammendLowLevelQuestions(result, lowLevelItems,item== 'Online Exam 1' ? 11 : 3 )
+
+    return spreadsheetData[item].sort(() => Math.random() - 0.5).slice(0, 10);
   }
 function ammendLowLevelQuestions(highQuestions, lowQuestions, size) {
   let copy = [...lowQuestions];
