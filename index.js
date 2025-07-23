@@ -203,6 +203,28 @@ app.get("/getLastMonthData/:id", async (req, res) => {
     res.json(data);
   });
 });
+
+app.get("/getOnlineQuiz/score/:id", async(req,res) => {
+    const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: req.params.id,
+  });
+  let response = { data: [] };
+  // res.send(spreadsheets)
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+  let respData = [];
+  const indexes = ["RegistrationID", "Name", "QuizID", "YourScore", "TotalScore", "Q1","Q2", "Q3","Q4", "Q5","Q6", "Q7","Q8", "Q9","Q10"]
+  respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
+    // const formatData = formatAllSheetData(data);
+    res.json(sortByProperty(data));
+  });
+})
 async function getLastMonthData(req) {
   const indexes = [
     "Rank",
@@ -599,6 +621,27 @@ app.get("/quizDetails/:id", async (req, res) => {
   });
   // res.json(this.getQuizSheetsData) ;
 });
+app.get("/getPuzzle/score/:id", async(req, res) => {
+   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: req.params.id,
+  });
+  let response = { data: [] };
+  // res.send(spreadsheets)
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+  let respData = [];
+  const indexes = ["SNO", "RegistrationID", "YourScore", "TotalScore", "AdditionalMarks"]
+  respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
+    // const formatData = formatAllSheetData(data);
+    res.json(sortByProperty(data));
+  });
+})
 async function getQuizSheetsData(result, req, res) {
   let responseData = {};
   await Promise.all(
@@ -762,4 +805,10 @@ function getExcelColumnName(n) {
         n = Math.floor((n - 1) / 26);
     }
     return columnName;
+}
+function sortByProperty(data) {
+    for (const key in data) {
+      data[key].sort((a, b) => b['YourScore'] - a['YourScore']);
+    }
+return data;
 }
