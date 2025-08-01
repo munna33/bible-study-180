@@ -1,4 +1,5 @@
 const express = require("express");
+const youtubeRouter = require('./routes/youtube');
 
 //googleapis
 const { google } = require("googleapis");
@@ -20,6 +21,7 @@ app.use(
     origin: "*",
   })
 );
+app.use('/youtube', youtubeRouter);
 const auth = new google.auth.GoogleAuth({
   credentials,
   scopes: [
