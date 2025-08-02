@@ -355,10 +355,11 @@ function formatAllSheetData(data, lastMonthData) {
             if (!groupedData[registrationId.toUpperCase()]) {
               groupedData[registrationId.toUpperCase()] = { data: [value] };
             } else {
-              const dateObj = new Date(value["Date"].split(' ')[0]);
+              // const dateObj = new Date(value["Date"].split(' ')[0]);
+              const currentDay = value["Day"] = day;
               groupedData[registrationId.toUpperCase()]['data'] = groupedData[registrationId.toUpperCase()].data.filter(dataItem =>  {
                 const newDateObj = new Date(dataItem.Date.split(' ')[0]);
-                if(newDateObj.getTime() !== dateObj.getTime()) {
+                if(currentDay !== dataItem.Day) {
                   return true;
                 }
               })
