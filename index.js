@@ -355,7 +355,14 @@ function formatAllSheetData(data, lastMonthData) {
             if (!groupedData[registrationId.toUpperCase()]) {
               groupedData[registrationId.toUpperCase()] = { data: [value] };
             } else {
-              groupedData[registrationId.toUpperCase()].data.push(value);
+              const dateObj = new Date(value["Date"].split(' ')[0]);
+              groupedData[registrationId.toUpperCase()]['data'] = groupedData[registrationId.toUpperCase()].data.filter(dataItem =>  {
+                const newDateObj = new Date(dataItem.Date.split(' ')[0]);
+                if(newDateObj.getTime() !== dateObj.getTime()) {
+                  return true;
+                }
+              })
+              groupedData[registrationId.toUpperCase()].data.push(value)
             }
 
             let score = 0;
