@@ -1,5 +1,6 @@
 const express = require("express");
 const youtubeRouter = require('./routes/youtube');
+const adminRouter = require('./routes/admin');
 
 //googleapis
 const { google } = require("googleapis");
@@ -22,6 +23,7 @@ app.use(
   })
 );
 app.use('/youtube', youtubeRouter);
+app.use('/admin', adminRouter);
 const auth = new google.auth.GoogleAuth({
   credentials,
   scopes: [
