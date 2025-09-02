@@ -1,6 +1,8 @@
 const express = require("express");
 const youtubeRouter = require('./routes/youtube');
 const adminRouter = require('./routes/admin');
+const NodeCache = require("node-cache");
+const sheetCache = new NodeCache({ stdTTL: 60 }); // cache 60s (tweak as needed)
 
 //googleapis
 const { google } = require("googleapis");
@@ -293,28 +295,61 @@ async function login(result, req, indexes) {
    return responseData;
 }
 async function getAllSpreadsheetData(result, req, indexes) {
-  let responseData = {};
-  //   return await new Promise((resolve, reject) => {
-  await Promise.all(
-    result.map(async (item) => {
-      if (
-        item.title !== "Registrations" &&
-        item.title !== "B180_Registrations"
-      ) {
-        const allSpreadSheetData =
-          await googleSheetsInstance.spreadsheets.values.get({
-            auth, //auth object
-            spreadsheetId: req.params.id,
-            range: item.title,
-          });
-        responseData[item.title] = formatRowData(
-          indexes,
-          allSpreadSheetData.data.values
-        );
-        // responseData[item.title] = allSpreadSheetData.data.values;
-      }
-    })
-  );
+  // let responseData = {};
+  // //   return await new Promise((resolve, reject) => {
+  // await Promise.all(
+  //   result.map(async (item) => {
+  //     if (
+  //       item.title !== "Registrations" &&
+  //       item.title !== "B180_Registrations"
+  //     ) {
+  //       const allSpreadSheetData =
+  //         await googleSheetsInstance.spreadsheets.values.get({
+  //           auth, //auth object
+  //           spreadsheetId: req.params.id,
+  //           range: item.title,
+  //         });
+  //       responseData[item.title] = formatRowData(
+  //         indexes,
+  //         allSpreadSheetData.data.values
+  //       );
+  //       // responseData[item.title] = allSpreadSheetData.data.values;
+  //     }
+  //   })
+  // );
+  // return responseData;
+  const cacheKey = `allData_${req.params.id}`;
+  const cached = sheetCache.get(cacheKey);
+  if (cached) {
+    console.log("✅ Serving from cache");
+    return cached;
+  }
+
+  // Build ranges for all sheets except registrations
+  const ranges = result
+    .filter(
+      (item) =>
+        item.title !== "Registrations" && item.title !== "B180_Registrations"
+    )
+    .map((item) => item.title);
+
+  // Single API call instead of N
+  const batchRes = await googleSheetsInstance.spreadsheets.values.batchGet({
+    auth,
+    spreadsheetId: req.params.id,
+    ranges,
+  });
+
+  const responseData = {};
+  batchRes.data.valueRanges.forEach((range, i) => {
+    const sheetTitle = ranges[i];
+    const values = range.values || [];
+    responseData[sheetTitle] = formatRowData(indexes, values);
+  });
+
+  // Store in cache
+  sheetCache.set(cacheKey, responseData);
+  console.log("📊 Fresh data fetched from Google Sheets");
   return responseData;
 }
 function formatRowData(keys, data) {
@@ -655,29 +690,61 @@ app.get("/getPuzzle/score/:id", async(req, res) => {
   });
 })
 async function getQuizSheetsData(result, req, res) {
-  let responseData = {};
-  await Promise.all(
-    result.map(async (item) => {
-      const allSpreadSheetData =
-        await googleSheetsInstance.spreadsheets.values.get({
-          auth, //auth object
-          spreadsheetId: req.params.id,
-          range: item.title,
-        });
-      // console.log("****",allSpreadSheetData.data)
+//   let responseData = {};
+//   await Promise.all(
+//     result.map(async (item) => {
+//       const allSpreadSheetData =
+//         await googleSheetsInstance.spreadsheets.values.get({
+//           auth, //auth object
+//           spreadsheetId: req.params.id,
+//           range: item.title,
+//         });
+//       // console.log("****",allSpreadSheetData.data)
      
-      if (
-        allSpreadSheetData.data.values &&
-        allSpreadSheetData.data.values.length > 0
-      ) {
-        responseData[item.title] = formatRowData(
-          allSpreadSheetData.data.values[0],
-          allSpreadSheetData.data.values
-        );
-      }
-    })
-  );
-return responseData;
+//       if (
+//         allSpreadSheetData.data.values &&
+//         allSpreadSheetData.data.values.length > 0
+//       ) {
+//         responseData[item.title] = formatRowData(
+//           allSpreadSheetData.data.values[0],
+//           allSpreadSheetData.data.values
+//         );
+//       }
+//     })
+//   );
+// return responseData;
+const cacheKey = `quizData_${req.params.id}`;
+  const cached = sheetCache.get(cacheKey);
+  if (cached) {
+    console.log("✅ Quiz data from cache");
+    return cached;
+  }
+
+  // Collect all sheet names
+  const ranges = result.map((item) => item.title);
+
+  // Single API call
+  const batchRes = await googleSheetsInstance.spreadsheets.values.batchGet({
+    auth,
+    spreadsheetId: req.params.id,
+    ranges,
+  });
+
+  const responseData = {};
+  batchRes.data.valueRanges.forEach((range, i) => {
+    const sheetTitle = ranges[i];
+    const values = range.values || [];
+
+    if (values.length > 0) {
+      // Use first row as keys
+      responseData[sheetTitle] = formatRowData(values[0], values);
+    }
+  });
+
+  // Save in cache
+  sheetCache.set(cacheKey, responseData);
+  console.log("📊 Fresh quiz data fetched from Google Sheets");
+  return responseData;
 }
  function randomQuestions(spreadsheetData, item) {
     // const groupedByBookName = spreadsheetData[item].reduce((acc, item) => {
