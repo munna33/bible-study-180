@@ -207,4 +207,119 @@ router.post("/getPuzzleScore", async (req, res) => {
     res.status(500).send({ error: error.message });
   }
 });
+router.post("/track", async (req, res) => {
+  try { 
+  //    const req = {
+  //  "RegistrationID": this.userDetails?.RegID,
+  //   "Name": this.userDetails?.Name,
+  //   "Quiz ID": chapterName,
+  //   "Attempted": true,
+  //   "Date": new Date()
+  // }
+    const appType = req.body.appType;
+    const collectionName =
+      appType === "NEW" ? "online_quiz_tracker_new" : "online_quiz_tracker_old_new";
+    const registrationNo = req.body.regID;
+    const puzzleSnapshot = await db.collection(collectionName).get();
+    let puzzles = [];
+    puzzleSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.users && Array.isArray(data.users)) {
+        const userTrack = data.users.find(u => u["registration_id"] === registrationNo);
+        if (userTrack) {
+          puzzles.push(userTrack);
+        }
+      }
+    });
+
+    // Insert a new document if not found
+    if (puzzles.length === 0) {
+      const newTrack = {
+        "Registration ID": registrationNo,
+        "Name": req.body.name || "Unknown User",
+        "Quiz ID": req.body.quizID || "Unknown Quiz",
+        // add other fields as needed, e.g.:
+        "Attempted": true,
+        "Date": new Date().toISOString()
+      };
+      // Replace slashes in quizID to ensure valid Firestore document ID
+      const safeQuizID = req.body.quizID.replace(/\//g, "");
+      const firstDocRef = db.collection(collectionName).doc(safeQuizID);
+      // Add to the first document in the collection, or create a new doc
+      if (!puzzleSnapshot.empty) {
+        // const firstDocRef = puzzleSnapshot.docs[0].ref;
+        // const firstDocRef = db.collection(collectionName).doc(req.body.quizID);
+        // await firstDocRef.update({
+        //   users: admin.firestore.FieldValue.arrayUnion(newTrack)
+        // });
+        await firstDocRef.update({
+          users: admin.firestore.FieldValue.arrayUnion(newTrack)  });
+      } else {
+        // If no docs exist, create a new one
+        await firstDocRef.set({
+          users: [newTrack]
+        });
+      }
+      puzzles.push(newTrack);
+    }
+
+    let result = puzzles;
+    if (!puzzles || puzzles.length === 0) {
+      return res.status(404).send({ error: "No puzzle scores found" });
+    }
+   
+    res.send(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+});
+router.post("/getQuizTracker", async (req, res) => {
+  try {
+    const appType = req.body.appType;
+    const collectionName =
+      appType === "NEW" ? "online_quiz_tracker_new" : "online_quiz_tracker_old_new";
+    const registrationNo = req.body.regID;
+    const puzzleSnapshot = await db.collection(collectionName).get();
+    let puzzles = [];
+    puzzleSnapshot.forEach(doc => {
+      const data = doc.data();
+      if(doc.id &&  req.body.quizID && doc.id === req.body.quizID.replace(/\//g, "")) {
+      if (data.users && Array.isArray(data.users)) {
+        const userTrack = data.users.find(u => u["Registration ID"] === registrationNo);
+        if (userTrack) {
+          puzzles.push(userTrack);
+        }
+      }
+    }
+    });
+
+    if (!puzzles || puzzles.length === 0) {
+      return res.send({ isAttempted: false, error: "No quiz tracker found for this user" });
+    }
+
+    res.send({  isAttempted: true, user: puzzles[0] });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+});
+router.post("/prayerRequest", async (req, res) => {
+  try {
+    const collectionName = "prayer_requests";
+    const prayerData = {  
+      Name: req.body.name || "Unknown",
+      Contact: req.body.contactNo || "Unknown",
+      Address: req.body.address || "",  
+      PrayerRequest: req.body.request || "",
+      Date: new Date().toISOString()
+    };
+    const prayerRef = db.collection(collectionName).doc();
+    await prayerRef.set(prayerData);
+    res.send({ message: "Prayer request submitted successfully!" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  } 
+});
 module.exports = router;
