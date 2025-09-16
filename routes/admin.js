@@ -246,16 +246,14 @@ router.post("/track", async (req, res) => {
       const safeQuizID = req.body.quizID.replace(/\//g, "");
       const firstDocRef = db.collection(collectionName).doc(safeQuizID);
       // Add to the first document in the collection, or create a new doc
-      if (!puzzleSnapshot.empty) {
-        // const firstDocRef = puzzleSnapshot.docs[0].ref;
-        // const firstDocRef = db.collection(collectionName).doc(req.body.quizID);
-        // await firstDocRef.update({
-        //   users: admin.firestore.FieldValue.arrayUnion(newTrack)
-        // });
+      // Check if the document exists before updating
+      const docSnapshot = await firstDocRef.get();
+      if (docSnapshot.exists) {
         await firstDocRef.update({
-          users: admin.firestore.FieldValue.arrayUnion(newTrack)  });
+          users: admin.firestore.FieldValue.arrayUnion(newTrack)
+        });
       } else {
-        // If no docs exist, create a new one
+        // If doc does not exist, create it with the new user
         await firstDocRef.set({
           users: [newTrack]
         });
