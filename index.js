@@ -1,6 +1,7 @@
 const express = require("express");
 const youtubeRouter = require('./routes/youtube');
 const adminRouter = require('./routes/admin');
+const whatsappRouter = require('./routes/whatsapp');
 const NodeCache = require("node-cache");
 const sheetCache = new NodeCache({ stdTTL: 60 }); // cache 60s (tweak as needed)
 
@@ -26,6 +27,7 @@ app.use(
 );
 app.use('/youtube', youtubeRouter);
 app.use('/admin', adminRouter);
+app.use('/whatsapp', whatsappRouter);
 const auth = new google.auth.GoogleAuth({
   credentials,
   scopes: [
@@ -550,6 +552,49 @@ app.get("/getOnlineQuiz/:id", async (req, res) => {
   //   "Book Name",
   //   "Level"
   // ];
+  responseData = getAllQuizData(result, req, indexes).then((data) => {
+    // res.json(data);
+    const exmaNames = Object.keys(data);
+    let randomQuestionsData = {};
+    exmaNames.forEach((item) => {
+      randomQuestionsData[item] = randomQuestions(data, item);
+    });
+
+    res.json(randomQuestionsData) ;
+    // return randomQuestionsData;
+  });
+});
+app.get("/getOnlineFinalQuiz/:id", async (req, res) => {
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: req.params.id,
+  });
+
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+  let responseData = [];
+  // const indexes = [
+  //   "QNO",
+  //   "Question",
+  //   "Options",
+  //   "Answer",
+  //   "Reference"
+  // ];
+  const indexes = [
+    "BookNo",
+    "QNO",
+    "Question",
+    "Options",
+    "Answer",
+    "Reference",
+    "Book Name",
+    "Level"
+  ];
   responseData = getAllQuizData(result, req, indexes).then((data) => {
     // res.json(data);
     const exmaNames = Object.keys(data);

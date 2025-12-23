@@ -216,8 +216,10 @@ router.post("/track", async (req, res) => {
   //   "Attempted": true,
   //   "Date": new Date()
   // }
+    const isFinalQuiz = req.body.finalQuiz || false;
     const appType = req.body.appType;
-    const collectionName =
+    const collectionName = 
+      isFinalQuiz ? 'final_quiz_tracker' :
       appType === "NEW" ? "online_quiz_tracker_new" : "online_quiz_tracker_old_new";
     const registrationNo = req.body.regID;
     const puzzleSnapshot = await db.collection(collectionName).get();
@@ -275,7 +277,9 @@ router.post("/track", async (req, res) => {
 router.post("/getQuizTracker", async (req, res) => {
   try {
     const appType = req.body.appType;
+    const isFinalQuiz = req.body.finalQuiz || false;
     const collectionName =
+      isFinalQuiz ? 'final_quiz_tracker' :
       appType === "NEW" ? "online_quiz_tracker_new" : "online_quiz_tracker_old_new";
     const registrationNo = req.body.regID;
     const puzzleSnapshot = await db.collection(collectionName).get();
@@ -320,4 +324,40 @@ router.post("/prayerRequest", async (req, res) => {
     res.status(500).send({ error: error.message });
   } 
 });
+router.post("/api/proctor/frame", async (req, res) => {
+  try {
+    const collectionName = "proctor_frames";  
+    const frameData = {
+      RegistrationID: req.body.regID || "Unknown",
+      FrameData: req.body.frame || "",
+      Timestamp: new Date().toISOString(),
+      appType: req.body.appType || "UNKNOWN"
+    };
+    const frameRef = db.collection(collectionName).doc();
+    await frameRef.set(frameData);
+    res.send({ message: "Proctor frame data submitted successfully!" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+router.post("/api/proctor/violation", async (req, res) => {
+  try {
+    const collectionName = "proctor_violations";  
+    const violationData = { 
+      RegistrationID: req.body.regID || "Unknown",
+      ViolationType: req.body.reason || "Unknown",
+      Timestamp: new Date().toISOString(),
+      appType: req.body.appType || "UNKNOWN"
+    };
+    const violationRef = db.collection(collectionName).doc();
+    await violationRef.set(violationData);
+    res.send({ message: "Proctor violation data submitted successfully!" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
 module.exports = router;
