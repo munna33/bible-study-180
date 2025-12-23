@@ -11,7 +11,9 @@ const credentials = {
   "client_x509_cert_url": process.env.CLIENT_X509_CERT_URL,
   "universe_domain": "googleapis.com",
   "api_key": process.env.API_KEY,
-  "channel_id": process.env.CHANNEL_ID
+  "channel_id": process.env.CHANNEL_ID,
+  "whatsapp_token": process.env.WHATSAPP_TOKEN,
+  "phone_number_id": process.env.PHONE_NUMBER_ID
 };
 
 module.exports = credentials;
