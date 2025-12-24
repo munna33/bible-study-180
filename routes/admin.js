@@ -9,6 +9,7 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const admin = require("firebase-admin");
 const { result } = require("lodash");
+const { google } = require("googleapis");
 router.use(
   bodyParser.urlencoded({
     extended: true,
@@ -24,7 +25,28 @@ router.use(
 admin.initializeApp({
   credential: admin.credential.cert(credentials),
 });
-
+ const sheets = google.sheets("v4");
+   const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/forms.body",
+      "https://www.googleapis.com/auth/drive",
+    ],
+  });
+const authClientObject = auth.getClient();
+const googleSheetsInstance = google.sheets({
+  version: "v4",
+  auth: authClientObject,
+});
+const googleFormInstance = google.forms({
+  version: "v1",
+  auth: authClientObject,
+});
+const googleDriveInstance = google.drive({
+  version: "v3",
+  auth: authClientObject,
+});
 const db = admin.firestore();
 // POST endpoint to accept file and store in Firestore
 router.post("/upload", async (req, res) => {
@@ -360,4 +382,65 @@ router.post("/api/proctor/violation", async (req, res) => {
   }
 });
 
+router.post("/registerUser", async (req, res) => {
+  try {
+    const regiId = await getRegisteredUsers();
+    const collectionName = "user_registrations_batch6";
+    const userData = {
+      registrationID: 'BS6'+`${regiId + 1}`.padStart(3, '0'),
+      fullName: req.body.fullName || "Unknown",
+      churchName: req.body.churchName || "Unknown",
+      contactNo: req.body.contactNo || "Unknown",
+      address: req.body.address || "",
+      occupation: req.body.occupation || "",
+      invitation: req.body.invitation || "",
+      participationStatus: req.body.participationStatus || "pending",
+      date: new Date().toISOString()
+    };
+    const userRef = db.collection(collectionName).doc();
+    await userRef.set(userData);
+   
+    const sheetId = req.body.sheetId; // The ID of your Google Sheet
+    const range = "Registrations!A:I";
+
+    await googleSheetsInstance.spreadsheets.values.append({
+      spreadsheetId: sheetId,
+      range: range,
+      valueInputOption: "USER_ENTERED",
+      resource: {
+        values: [
+          [
+            userData.registrationID,
+            userData.fullName,
+            userData.churchName,
+            userData.contactNo,
+            userData.address,
+            userData.occupation,
+            userData.invitation,
+            userData.participationStatus,
+            userData.date,
+          ],
+        ],
+      },
+      auth: auth,
+    });
+    res.send({ message: "User registered successfully!", registrationID: userData.registrationID });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+async function getRegisteredUsers() {
+    const collectionName = "user_registrations_batch6"; 
+    const usersSnapshot = await db.collection(collectionName).get();
+    let users = [];
+    if(usersSnapshot && !usersSnapshot.empty) {
+      usersSnapshot.forEach(doc => {
+      users.push({ id: doc.id, ...doc.data() });
+    });
+  }
+    
+  return users.length;
+}
 module.exports = router;
