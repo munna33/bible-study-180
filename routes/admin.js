@@ -389,7 +389,7 @@ router.post("/registerUser", async (req, res) => {
     regId = 'BS6'+`${parseInt(regId) + 1}`.padStart(3, '0');
     const collectionName = "user_registrations_batch6";
     const userData = {
-      registrationID: regiId,
+      registrationID: regId,
       fullName: req.body.fullName || "Unknown",
       churchName: req.body.churchName || "Unknown",
       contactNo: req.body.contactNo || "Unknown",
