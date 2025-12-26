@@ -384,10 +384,11 @@ router.post("/api/proctor/violation", async (req, res) => {
 
 router.post("/registerUser", async (req, res) => {
   try {
-    const regiId = await getRegisteredUsers();
+    let regId = users[users.length - 1] ? users[users.length - 1].registrationID.replace('BS6','') : 0;
+    regId = 'BS6'+`${parseInt(regId) + 1}`.padStart(3, '0');
     const collectionName = "user_registrations_batch6";
     const userData = {
-      registrationID: 'BS6'+`${regiId + 1}`.padStart(3, '0'),
+      registrationID: regiId,
       fullName: req.body.fullName || "Unknown",
       churchName: req.body.churchName || "Unknown",
       contactNo: req.body.contactNo || "Unknown",
@@ -440,7 +441,17 @@ async function getRegisteredUsers() {
       users.push({ id: doc.id, ...doc.data() });
     });
   }
-    
-  return users.length;
+    users.sort((a, b) => new Date(a.date) - new Date(b.date));
+  return users; 
 }
+router.get("/getRegisteredUsers", async (req, res) => {
+  try {
+    const regiId = await getRegisteredUsers();
+    res.send({ registeredUsers: regiId });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  } 
+});
+// getRegisteredUsers();
 module.exports = router;
