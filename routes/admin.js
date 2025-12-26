@@ -432,6 +432,20 @@ router.post("/registerUser", async (req, res) => {
     res.status(500).send({ error: error.message });
   }
 });
+router.get("/getUserByNumber", async (req, res) => {
+  try {
+    const mobileNumber = req.query.mobileNumber; 
+    const users = await getRegisteredUsers();
+    const user = users.filter(u => u.contactNo === mobileNumber);
+    if (!user || user.length === 0) {
+      return res.status(200).send({ users: [],message: "User not found" });
+    }
+    res.send({ users: user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+});
 
 async function getRegisteredUsers() {
     const collectionName = "user_registrations_batch6"; 
