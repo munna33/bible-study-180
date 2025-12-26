@@ -384,6 +384,7 @@ router.post("/api/proctor/violation", async (req, res) => {
 
 router.post("/registerUser", async (req, res) => {
   try {
+    const users = await getRegisteredUsers();
     let regId = users[users.length - 1] ? users[users.length - 1].registrationID.replace('BS6','') : 0;
     regId = 'BS6'+`${parseInt(regId) + 1}`.padStart(3, '0');
     const collectionName = "user_registrations_batch6";
@@ -441,7 +442,9 @@ async function getRegisteredUsers() {
       users.push({ id: doc.id, ...doc.data() });
     });
   }
+  // if(users.length > 0){
     users.sort((a, b) => new Date(a.date) - new Date(b.date));
+  // }
   return users; 
 }
 router.get("/getRegisteredUsers", async (req, res) => {
