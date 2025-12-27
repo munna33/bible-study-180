@@ -593,7 +593,7 @@ app.get("/getOnlineFinalQuiz/:id", async (req, res) => {
     const exmaNames = Object.keys(data);
     let randomQuestionsData = {};
     exmaNames.forEach((item) => {
-      randomQuestionsData[item] = randomQuestions(data, item);
+      randomQuestionsData[item] = randomQuestions(data, item, req.query.appType);
     });
 
     res.json(randomQuestionsData) ;
@@ -784,7 +784,7 @@ const cacheKey = `quizData_${req.params.id}`;
   console.log("📊 Fresh quiz data fetched from Google Sheets");
   return responseData;
 }
- function randomQuestions(spreadsheetData, item) {
+ function randomQuestions(spreadsheetData, item, appType) {
     const groupedByBookName = spreadsheetData[item].reduce((acc, item) => {
       const key =item['Book Name'];
       if (!acc[key]) {
@@ -798,7 +798,7 @@ const cacheKey = `quizData_${req.params.id}`;
     let lowLevelItems = []
     let middleLevelItems = []
     let highLevelItems = []
-    const noOfQuestions = item == 'OLD_NEW' ? 40 : 20;
+    const noOfQuestions = appType == 'OLD_NEW' ?  item == 'OLD_NEW' ? 40 : 20 : 40;
     for(const key in groupedByBookName) {
       
       if(groupedByBookName.hasOwnProperty(key)){
