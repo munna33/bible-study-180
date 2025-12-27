@@ -830,7 +830,7 @@ const cacheKey = `quizData_${req.params.id}`;
   }
 function shuffleOptions(questions) {
   let result = questions.map(question => {
-    if (question.Options) {
+    if (question.Options && !question.Options.includes('పైవన్నీ') ) {
       const options = question.Options.split(',').map(opt => opt.trim());
       const shuffled = options.sort(() => Math.random() - 0.5);
       return {
