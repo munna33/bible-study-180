@@ -578,13 +578,6 @@ app.get("/getOnlineFinalQuiz/:id", async (req, res) => {
     };
   });
   let responseData = [];
-  // const indexes = [
-  //   "QNO",
-  //   "Question",
-  //   "Options",
-  //   "Answer",
-  //   "Reference"
-  // ];
   const indexes = [
     "BookNo",
     "QNO",
@@ -792,39 +785,75 @@ const cacheKey = `quizData_${req.params.id}`;
   return responseData;
 }
  function randomQuestions(spreadsheetData, item) {
-    // const groupedByBookName = spreadsheetData[item].reduce((acc, item) => {
-    //   const key =item['Book Name'];
-    //   if (!acc[key]) {
-    //     acc[key] = [];
-    //   }
-    //   acc[key].push(item);
-    //   return acc;
-    // }, {});
-    // // console.log('groupedBy 0', groupedByBookName)
-    // let result = []
-    // let lowLevelItems = []
-    // for(const key in groupedByBookName) {
-    //   if(groupedByBookName.hasOwnProperty(key)){
-    //     let randomItem = groupedByBookName[key].filter(item => item.Level == 'H')
-    //    randomItem = randomItem[Math.floor(Math.random() * randomItem.length)];
-    //    lowLevelItems = [...lowLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'M')))
-    //     result.push(randomItem);
-    //   }
-    // }
-    // // console.log('result', result)
-    // result = ammendLowLevelQuestions(result, lowLevelItems,item== 'Online Exam 1' ? 11 : 3 )
-
-    return spreadsheetData[item].sort(() => Math.random() - 0.5).slice(0, 10);
+    const groupedByBookName = spreadsheetData[item].reduce((acc, item) => {
+      const key =item['Book Name'];
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(item);
+      return acc;
+    }, {});
+    // console.log('groupedBy 0', groupedByBookName)
+    let result = []
+    let lowLevelItems = []
+    let middleLevelItems = []
+    let highLevelItems = []
+    const noOfQuestions = item == 'OLD_NEW' ? 40 : 20;
+    for(const key in groupedByBookName) {
+      
+      if(groupedByBookName.hasOwnProperty(key)){
+      highLevelItems = [...highLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'H')))
+      middleLevelItems = [...middleLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'M')))
+      lowLevelItems = [...lowLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'L')))
+    
+      //  let randomItem = groupedByBookName[key].filter(item => item.Level == 'H')
+      //  randomItem = randomItem[Math.floor(Math.random() * randomItem.length)];
+      //  lowLevelItems = [...lowLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'M')))
+      //   result.push(randomItem);
+      }
+    }
+    // console.log('result', result)
+    // result = ammendLowLevelQuestions(result, lowLevelItems,item== 'OLD_NEW' ? 6 : 3 )
+    if(item == 'OLD_NEW' ) {
+     highLevelItems = getRandomItems(highLevelItems, Math.floor(noOfQuestions * 0.6));
+     middleLevelItems = getRandomItems(middleLevelItems, Math.floor(noOfQuestions * 0.3));
+     lowLevelItems = getRandomItems(lowLevelItems, Math.floor(noOfQuestions * 0.1));
+     result = [...result, ...highLevelItems, ...middleLevelItems, ...lowLevelItems];
+    } else {
+      highLevelItems = getRandomItems(highLevelItems, Math.floor(noOfQuestions * 0.7));
+      middleLevelItems = getRandomItems(middleLevelItems, Math.floor(noOfQuestions * 0.3));
+      result = [...result, ...highLevelItems, ...middleLevelItems];
+    }
+    // return spreadsheetData[item].sort(() => Math.random() - 0.5).slice(0, 40);
+    result = shuffleOptions(result);
+    return result.sort(() => Math.random() - 0.5);
   }
-function ammendLowLevelQuestions(highQuestions, lowQuestions, size) {
-  let copy = [...lowQuestions];
-  let result = [];
-
-  for (let i = 0; i < size; i++) {
-    const index = Math.floor(Math.random() * copy.length);
-    result.push(copy.splice(index, 1)[0]); // remove and push
-  }
-  return highQuestions.concat(result);
+function shuffleOptions(questions) {
+  let result = questions.map(question => {
+    if (question.Options) {
+      const options = question.Options.split(',').map(opt => opt.trim());
+      const shuffled = options.sort(() => Math.random() - 0.5);
+      return {
+        ...question,
+        Options: shuffled.join(', ')
+      };
+    }
+    return question;
+  });
+  return result;
+}
+function getRandomItems(arr, n) {
+    const result = [];
+    const taken = new Array(arr.length);
+    if(n > arr.length) n = arr.length;
+    while (result.length < n) {
+        const randomIndex = Math.floor(Math.random() * arr.length);
+        if (!taken[randomIndex]) {
+            taken[randomIndex] = true;
+            result.push(arr[randomIndex]);
+        } 
+    }
+    return result;
 }
 async function insertData(req, sheet) {
   // console.log('sheet name', sheet)
