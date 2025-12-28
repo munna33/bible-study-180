@@ -297,29 +297,6 @@ async function login(result, req, indexes) {
    return responseData;
 }
 async function getAllSpreadsheetData(result, req, indexes) {
-  // let responseData = {};
-  // //   return await new Promise((resolve, reject) => {
-  // await Promise.all(
-  //   result.map(async (item) => {
-  //     if (
-  //       item.title !== "Registrations" &&
-  //       item.title !== "B180_Registrations"
-  //     ) {
-  //       const allSpreadSheetData =
-  //         await googleSheetsInstance.spreadsheets.values.get({
-  //           auth, //auth object
-  //           spreadsheetId: req.params.id,
-  //           range: item.title,
-  //         });
-  //       responseData[item.title] = formatRowData(
-  //         indexes,
-  //         allSpreadSheetData.data.values
-  //       );
-  //       // responseData[item.title] = allSpreadSheetData.data.values;
-  //     }
-  //   })
-  // );
-  // return responseData;
   const cacheKey = `allData_${req.params.id}`;
   const cached = sheetCache.get(cacheKey);
   if (cached) {
@@ -727,31 +704,60 @@ app.get("/getPuzzle/score/:id", async(req, res) => {
     res.json(sortByProperty(data));
   });
 })
+app.get("/getFinalOnlineExamScore/:id", async(req, res) => {
+   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: req.params.id,
+  });
+  let response = { data: [] };
+  // res.send(spreadsheets)
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+  let respData = [];
+  const indexes = ["RegistrationID", "Name", "QuizID", "Your Score", "TotalScore"]
+  respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
+    // const formatData = formatAllSheetData(data);
+    // res.json(sortByProperty(data));
+   res.json(getUserRanksData(req.query.appType, data));
+    // res.json(data)
+  });
+})
+function getUserRanksData(appType, data) {
+  const groupedData = {};
+  for (const sheet in data) {
+    if (data[sheet] && Array.isArray(data[sheet])) {
+      data[sheet].forEach(item => {
+        const regId = item.RegistrationID?.toUpperCase().trim();
+        const appTypeMatch = appType === 'OLD_NEW' ? 'BS5'  : 'B5N';
+        if (regId && regId.startsWith(appTypeMatch)) {
+          if (!groupedData[regId]) {
+            groupedData[regId] = { data: [], totalScore: 0 };
+          }
+          groupedData[regId].data.push(item);
+          groupedData[regId].totalScore += parseFloat(item["Your Score"] || 0);
+          groupedData[regId].name = item.Name;
+          groupedData[regId].registrationID = regId;
+        }
+      });
+    }
+  }
+  // Sort by total score in descending order
+  const sortedData = Object.entries(groupedData)
+    .sort((a, b) => b[1].totalScore - a[1].totalScore)
+    .reduce((acc, [key, value]) => {
+      acc[key] = value;
+      return acc;
+    }, {});
+
+  return sortedData;
+}
 async function getQuizSheetsData(result, req, res) {
-//   let responseData = {};
-//   await Promise.all(
-//     result.map(async (item) => {
-//       const allSpreadSheetData =
-//         await googleSheetsInstance.spreadsheets.values.get({
-//           auth, //auth object
-//           spreadsheetId: req.params.id,
-//           range: item.title,
-//         });
-//       // console.log("****",allSpreadSheetData.data)
-     
-//       if (
-//         allSpreadSheetData.data.values &&
-//         allSpreadSheetData.data.values.length > 0
-//       ) {
-//         responseData[item.title] = formatRowData(
-//           allSpreadSheetData.data.values[0],
-//           allSpreadSheetData.data.values
-//         );
-//       }
-//     })
-//   );
-// return responseData;
-const cacheKey = `quizData_${req.params.id}`;
+  const cacheKey = `quizData_${req.params.id}`;
   const cached = sheetCache.get(cacheKey);
   if (cached) {
     console.log("✅ Quiz data from cache");
@@ -806,14 +812,8 @@ const cacheKey = `quizData_${req.params.id}`;
       middleLevelItems = [...middleLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'M')))
       lowLevelItems = [...lowLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'L')))
     
-      //  let randomItem = groupedByBookName[key].filter(item => item.Level == 'H')
-      //  randomItem = randomItem[Math.floor(Math.random() * randomItem.length)];
-      //  lowLevelItems = [...lowLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'M')))
-      //   result.push(randomItem);
       }
     }
-    // console.log('result', result)
-    // result = ammendLowLevelQuestions(result, lowLevelItems,item== 'OLD_NEW' ? 6 : 3 )
     if(item == 'OLD_NEW' ) {
      highLevelItems = getRandomItems(highLevelItems, Math.floor(noOfQuestions * 0.6));
      middleLevelItems = getRandomItems(middleLevelItems, Math.floor(noOfQuestions * 0.3));
@@ -824,7 +824,6 @@ const cacheKey = `quizData_${req.params.id}`;
       middleLevelItems = getRandomItems(middleLevelItems, Math.floor(noOfQuestions * 0.3));
       result = [...result, ...highLevelItems, ...middleLevelItems];
     }
-    // return spreadsheetData[item].sort(() => Math.random() - 0.5).slice(0, 40);
     result = shuffleOptions(result);
     return result.sort(() => Math.random() - 0.5);
   }

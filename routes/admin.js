@@ -471,4 +471,43 @@ router.get("/getRegisteredUsers", async (req, res) => {
   } 
 });
 // getRegisteredUsers();
+router.get("/getProctorViolations", async (req, res) => {
+  try {
+    const collectionName = "proctor_violations"; 
+    const violationsSnapshot = await db.collection(collectionName).get();
+    let violations = [];
+    if(violationsSnapshot && !violationsSnapshot.empty) {
+      violationsSnapshot.forEach(doc => {
+      violations.push({ id: doc.id, ...doc.data() });
+    });
+
+    res.send({ violations: violations });
+  } else {
+    res.send({ violations: [] });
+  } 
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+});
+router.get("/getPoctorFrames", async (req, res) => {
+  try {
+    const collectionName = "proctor_frames"; 
+    const framesSnapshot = await db.collection(collectionName).get();
+    let frames = [];
+    if(framesSnapshot && !framesSnapshot.empty) {
+      framesSnapshot.forEach(doc => {
+      frames.push({ id: doc.id, ...doc.data() });
+    });
+    res.send({ frames: frames });
+
+  } else {
+    res.send({ frames: [] });
+  }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  } 
+});
+
 module.exports = router;
