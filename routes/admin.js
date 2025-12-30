@@ -25,15 +25,15 @@ router.use(
 admin.initializeApp({
   credential: admin.credential.cert(credentials),
 });
- const sheets = google.sheets("v4");
-   const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: [
-      "https://www.googleapis.com/auth/spreadsheets",
-      "https://www.googleapis.com/auth/forms.body",
-      "https://www.googleapis.com/auth/drive",
-    ],
-  });
+const sheets = google.sheets("v4");
+const auth = new google.auth.GoogleAuth({
+  credentials,
+  scopes: [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/forms.body",
+    "https://www.googleapis.com/auth/drive",
+  ],
+});
 const authClientObject = auth.getClient();
 const googleSheetsInstance = google.sheets({
   version: "v4",
@@ -125,20 +125,20 @@ router.get("/getAllUsers", async (req, res) => {
           })
         )
       );
-    let results = {}
+    let results = {};
     for (const doc of usersSnapshot) {
       let userData = { id: doc.id, ...doc.data() };
-        if (userData['users'] && Array.isArray(userData['users'])) {
-          userData['users'].sort((a, b) => {
-            if (a["Reg No"] === undefined) return 1;
-            if (b["Reg No"] === undefined) return -1;
-            if (a["Reg No"] < b["Reg No"]) return -1;
-            if (a["Reg No"] > b["Reg No"]) return 1;
-            return 0;
-          });
-        }
+      if (userData["users"] && Array.isArray(userData["users"])) {
+        userData["users"].sort((a, b) => {
+          if (a["Reg No"] === undefined) return 1;
+          if (b["Reg No"] === undefined) return -1;
+          if (a["Reg No"] < b["Reg No"]) return -1;
+          if (a["Reg No"] > b["Reg No"]) return 1;
+          return 0;
+        });
+      }
       // }
-        results[doc.id] = userData['users'] || [];
+      results[doc.id] = userData["users"] || [];
       users.push(userData);
     }
 
@@ -230,26 +230,30 @@ router.post("/getPuzzleScore", async (req, res) => {
   }
 });
 router.post("/track", async (req, res) => {
-  try { 
-  //    const req = {
-  //  "RegistrationID": this.userDetails?.RegID,
-  //   "Name": this.userDetails?.Name,
-  //   "Quiz ID": chapterName,
-  //   "Attempted": true,
-  //   "Date": new Date()
-  // }
+  try {
+    //    const req = {
+    //  "RegistrationID": this.userDetails?.RegID,
+    //   "Name": this.userDetails?.Name,
+    //   "Quiz ID": chapterName,
+    //   "Attempted": true,
+    //   "Date": new Date()
+    // }
     const isFinalQuiz = req.body.finalQuiz || false;
     const appType = req.body.appType;
-    const collectionName = 
-      isFinalQuiz ? 'final_quiz_tracker' :
-      appType === "NEW" ? "online_quiz_tracker_new" : "online_quiz_tracker_old_new";
+    const collectionName = isFinalQuiz
+      ? "final_quiz_tracker"
+      : appType === "NEW"
+      ? "online_quiz_tracker_new"
+      : "online_quiz_tracker_old_new";
     const registrationNo = req.body.regID;
     const puzzleSnapshot = await db.collection(collectionName).get();
     let puzzles = [];
-    puzzleSnapshot.forEach(doc => {
+    puzzleSnapshot.forEach((doc) => {
       const data = doc.data();
       if (data.users && Array.isArray(data.users)) {
-        const userTrack = data.users.find(u => u["registration_id"] === registrationNo);
+        const userTrack = data.users.find(
+          (u) => u["registration_id"] === registrationNo
+        );
         if (userTrack) {
           puzzles.push(userTrack);
         }
@@ -260,11 +264,11 @@ router.post("/track", async (req, res) => {
     if (puzzles.length === 0) {
       const newTrack = {
         "Registration ID": registrationNo,
-        "Name": req.body.name || "Unknown User",
+        Name: req.body.name || "Unknown User",
         "Quiz ID": req.body.quizID || "Unknown Quiz",
         // add other fields as needed, e.g.:
-        "Attempted": true,
-        "Date": new Date().toISOString()
+        Attempted: true,
+        Date: new Date().toISOString(),
       };
       // Replace slashes in quizID to ensure valid Firestore document ID
       const safeQuizID = req.body.quizID.replace(/\//g, "");
@@ -274,12 +278,12 @@ router.post("/track", async (req, res) => {
       const docSnapshot = await firstDocRef.get();
       if (docSnapshot.exists) {
         await firstDocRef.update({
-          users: admin.firestore.FieldValue.arrayUnion(newTrack)
+          users: admin.firestore.FieldValue.arrayUnion(newTrack),
         });
       } else {
         // If doc does not exist, create it with the new user
         await firstDocRef.set({
-          users: [newTrack]
+          users: [newTrack],
         });
       }
       puzzles.push(newTrack);
@@ -289,7 +293,7 @@ router.post("/track", async (req, res) => {
     if (!puzzles || puzzles.length === 0) {
       return res.status(404).send({ error: "No puzzle scores found" });
     }
-   
+
     res.send(result);
   } catch (error) {
     console.error(error);
@@ -300,29 +304,40 @@ router.post("/getQuizTracker", async (req, res) => {
   try {
     const appType = req.body.appType;
     const isFinalQuiz = req.body.finalQuiz || false;
-    const collectionName =
-      isFinalQuiz ? 'final_quiz_tracker' :
-      appType === "NEW" ? "online_quiz_tracker_new" : "online_quiz_tracker_old_new";
+    const collectionName = isFinalQuiz
+      ? "final_quiz_tracker"
+      : appType === "NEW"
+      ? "online_quiz_tracker_new"
+      : "online_quiz_tracker_old_new";
     const registrationNo = req.body.regID;
     const puzzleSnapshot = await db.collection(collectionName).get();
     let puzzles = [];
-    puzzleSnapshot.forEach(doc => {
+    puzzleSnapshot.forEach((doc) => {
       const data = doc.data();
-      if(doc.id &&  req.body.quizID && doc.id === req.body.quizID.replace(/\//g, "")) {
-      if (data.users && Array.isArray(data.users)) {
-        const userTrack = data.users.find(u => u["Registration ID"] === registrationNo);
-        if (userTrack) {
-          puzzles.push(userTrack);
+      if (
+        doc.id &&
+        req.body.quizID &&
+        doc.id === req.body.quizID.replace(/\//g, "")
+      ) {
+        if (data.users && Array.isArray(data.users)) {
+          const userTrack = data.users.find(
+            (u) => u["Registration ID"] === registrationNo
+          );
+          if (userTrack) {
+            puzzles.push(userTrack);
+          }
         }
       }
-    }
     });
 
     if (!puzzles || puzzles.length === 0) {
-      return res.send({ isAttempted: false, error: "No quiz tracker found for this user" });
+      return res.send({
+        isAttempted: false,
+        error: "No quiz tracker found for this user",
+      });
     }
 
-    res.send({  isAttempted: true, user: puzzles[0] });
+    res.send({ isAttempted: true, user: puzzles[0] });
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: error.message });
@@ -331,12 +346,12 @@ router.post("/getQuizTracker", async (req, res) => {
 router.post("/prayerRequest", async (req, res) => {
   try {
     const collectionName = "prayer_requests";
-    const prayerData = {  
+    const prayerData = {
       Name: req.body.name || "Unknown",
       Contact: req.body.contactNo || "Unknown",
-      Address: req.body.address || "",  
+      Address: req.body.address || "",
       PrayerRequest: req.body.request || "",
-      Date: new Date().toISOString()
+      Date: new Date().toISOString(),
     };
     const prayerRef = db.collection(collectionName).doc();
     await prayerRef.set(prayerData);
@@ -344,16 +359,16 @@ router.post("/prayerRequest", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: error.message });
-  } 
+  }
 });
 router.post("/api/proctor/frame", async (req, res) => {
   try {
-    const collectionName = "proctor_frames";  
+    const collectionName = "proctor_frames";
     const frameData = {
       RegistrationID: req.body.regID || "Unknown",
       FrameData: req.body.frame || "",
       Timestamp: new Date().toISOString(),
-      appType: req.body.appType || "UNKNOWN"
+      appType: req.body.appType || "UNKNOWN",
     };
     const frameRef = db.collection(collectionName).doc();
     await frameRef.set(frameData);
@@ -366,12 +381,12 @@ router.post("/api/proctor/frame", async (req, res) => {
 
 router.post("/api/proctor/violation", async (req, res) => {
   try {
-    const collectionName = "proctor_violations";  
-    const violationData = { 
+    const collectionName = "proctor_violations";
+    const violationData = {
       RegistrationID: req.body.regID || "Unknown",
       ViolationType: req.body.reason || "Unknown",
       Timestamp: new Date().toISOString(),
-      appType: req.body.appType || "UNKNOWN"
+      appType: req.body.appType || "UNKNOWN",
     };
     const violationRef = db.collection(collectionName).doc();
     await violationRef.set(violationData);
@@ -385,8 +400,10 @@ router.post("/api/proctor/violation", async (req, res) => {
 router.post("/registerUser", async (req, res) => {
   try {
     const users = await getRegisteredUsers();
-    let regId = users[users.length - 1] ? users[users.length - 1].registrationID.replace('BS6','') : 0;
-    regId = 'BS6'+`${parseInt(regId) + 1}`.padStart(3, '0');
+    let regId = users[users.length - 1]
+      ? users[users.length - 1].registrationID.replace("BS6", "")
+      : 0;
+    regId = "BS6" + `${parseInt(regId) + 1}`.padStart(3, "0");
     const collectionName = "user_registrations_batch6";
     const userData = {
       registrationID: regId,
@@ -397,11 +414,11 @@ router.post("/registerUser", async (req, res) => {
       occupation: req.body.occupation || "",
       invitation: req.body.invitation || "",
       participationStatus: req.body.participationStatus || "pending",
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
     };
     const userRef = db.collection(collectionName).doc();
     await userRef.set(userData);
-   
+
     const sheetId = req.body.sheetId; // The ID of your Google Sheet
     const range = "Registrations!A:I";
 
@@ -426,7 +443,10 @@ router.post("/registerUser", async (req, res) => {
       },
       auth: auth,
     });
-    res.send({ message: "User registered successfully!", registrationID: userData.registrationID });
+    res.send({
+      message: "User registered successfully!",
+      registrationID: userData.registrationID,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: error.message });
@@ -434,11 +454,11 @@ router.post("/registerUser", async (req, res) => {
 });
 router.get("/getUserByNumber", async (req, res) => {
   try {
-    const mobileNumber = req.query.mobileNumber; 
+    const mobileNumber = req.query.mobileNumber;
     const users = await getRegisteredUsers();
-    const user = users.filter(u => u.contactNo === mobileNumber);
+    const user = users.filter((u) => u.contactNo === mobileNumber);
     if (!user || user.length === 0) {
-      return res.status(200).send({ users: [],message: "User not found" });
+      return res.status(200).send({ users: [], message: "User not found" });
     }
     res.send({ users: user });
   } catch (error) {
@@ -448,18 +468,18 @@ router.get("/getUserByNumber", async (req, res) => {
 });
 
 async function getRegisteredUsers() {
-    const collectionName = "user_registrations_batch6"; 
-    const usersSnapshot = await db.collection(collectionName).get();
-    let users = [];
-    if(usersSnapshot && !usersSnapshot.empty) {
-      usersSnapshot.forEach(doc => {
+  const collectionName = "user_registrations_batch6";
+  const usersSnapshot = await db.collection(collectionName).get();
+  let users = [];
+  if (usersSnapshot && !usersSnapshot.empty) {
+    usersSnapshot.forEach((doc) => {
       users.push({ id: doc.id, ...doc.data() });
     });
   }
   // if(users.length > 0){
-    users.sort((a, b) => new Date(a.date) - new Date(b.date));
+  users.sort((a, b) => new Date(a.date) - new Date(b.date));
   // }
-  return users; 
+  return users;
 }
 router.get("/getRegisteredUsers", async (req, res) => {
   try {
@@ -468,23 +488,23 @@ router.get("/getRegisteredUsers", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: error.message });
-  } 
+  }
 });
 // getRegisteredUsers();
 router.get("/getProctorViolations", async (req, res) => {
   try {
-    const collectionName = "proctor_violations"; 
+    const collectionName = "proctor_violations";
     const violationsSnapshot = await db.collection(collectionName).get();
     let violations = [];
-    if(violationsSnapshot && !violationsSnapshot.empty) {
-      violationsSnapshot.forEach(doc => {
-      violations.push({ id: doc.id, ...doc.data() });
-    });
+    if (violationsSnapshot && !violationsSnapshot.empty) {
+      violationsSnapshot.forEach((doc) => {
+        violations.push({ id: doc.id, ...doc.data() });
+      });
 
-    res.send({ violations: violations });
-  } else {
-    res.send({ violations: [] });
-  } 
+      res.send({ violations: violations });
+    } else {
+      res.send({ violations: [] });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: error.message });
@@ -492,22 +512,124 @@ router.get("/getProctorViolations", async (req, res) => {
 });
 router.get("/getPoctorFrames", async (req, res) => {
   try {
-    const collectionName = "proctor_frames"; 
+    const collectionName = "proctor_frames";
     const framesSnapshot = await db.collection(collectionName).get();
     let frames = [];
-    if(framesSnapshot && !framesSnapshot.empty) {
-      framesSnapshot.forEach(doc => {
-      frames.push({ id: doc.id, ...doc.data() });
-    });
-    res.send({ frames: frames });
-
-  } else {
-    res.send({ frames: [] });
-  }
+    if (framesSnapshot && !framesSnapshot.empty) {
+      framesSnapshot.forEach((doc) => {
+        frames.push({ id: doc.id, ...doc.data() });
+      });
+      res.send({ frames: frames });
+    } else {
+      res.send({ frames: [] });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: error.message });
-  } 
+  }
+});
+router.post("/saveDailyQuizData", async (req, res) => {
+  try {
+    const dialyQuizData = req.body;
+    const collectionName = "daily-quiz-batch6";
+    const userRef = await db.collection(collectionName).get();
+    let dailyQuizData = [];
+    const registrationNo = req.body.regID;
+    userRef.forEach((doc) => {
+      const data = doc.data();
+      if (data.users && Array.isArray(data.users)) {
+        const userTrack = data.users.find(
+          (u) => u["registration_id"] === registrationNo
+        );
+        if (userTrack) {
+          dailyQuizData.push(userTrack);
+        }
+      }
+    });
+    if (dailyQuizData.length == 0) {
+      const newTrack = {
+        registration_id: registrationNo,
+        Day: req.body.day || "Unknown Day",
+        Date: req.body.date || "Unknown Date",
+        Answer: req.body.answer || "Unknow Answer",
+      };
+      const firstDocRef = db
+        .collection(collectionName)
+        .doc("Day_" + req.body.day);
+      // Add to the first document in the collection, or create a new doc
+      // Check if the document exists before updating
+      const docSnapshot = await firstDocRef.get();
+      if (docSnapshot.exists) {
+        await firstDocRef.update({
+          users: admin.firestore.FieldValue.arrayUnion(newTrack),
+        });
+      } else {
+        // If doc does not exist, create it with the new user
+        await firstDocRef.set({
+          users: [newTrack],
+        });
+      }
+      dailyQuizData.push(newTrack);
+    } else {
+      const docId = "Day_" + req.body.day;
+      const docRef = db.collection(collectionName).doc(docId);
+      const docSnapshot = await docRef.get();
+
+      const updatedTrack = {
+        registration_id: registrationNo,
+        Day: req.body.day || "Unknown Day",
+        Date: req.body.date || "Unknown Date",
+        Answer: req.body.answer || "Unknown Answer",
+      };
+
+      // 👉 IF document does NOT exist → CREATE
+      if (!docSnapshot.exists) {
+        await docRef.set({
+          users: [updatedTrack],
+        });
+
+        dailyQuizData = [updatedTrack];
+      } else {
+        // 👉 IF document EXISTS → UPDATE existing user
+        const docData = docSnapshot.data();
+        const users = docData.users || [];
+
+        const userIndex = users.findIndex(
+          (u) => u.registration_id === registrationNo
+        );
+
+        // User exists → update
+        if (userIndex !== -1) {
+          users[userIndex] = {
+            ...users[userIndex],
+            Answer: req.body.answer || users[userIndex].Answer,
+            Date: req.body.date || users[userIndex].Date,
+          };
+        }
+        // User does NOT exist → add new
+        else {
+          users.push(updatedTrack);
+        }
+
+        await docRef.update({
+          users,
+        });
+
+        dailyQuizData = users.filter(
+          (u) => u.registration_id === registrationNo
+        );
+      }
+    }
+    let result = dailyQuizData;
+    if (!dailyQuizData || dailyQuizData.length === 0) {
+      return res.status(404).send({ error: "No puzzle scores found" });
+    }
+
+    res.send(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
 });
 
 module.exports = router;
