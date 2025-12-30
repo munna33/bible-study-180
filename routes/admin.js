@@ -539,7 +539,7 @@ router.post("/saveDailyQuizData", async (req, res) => {
       const data = doc.data();
       if (data.users && Array.isArray(data.users)) {
         const userTrack = data.users.find(
-          (u) => u["registration_id"] === registrationNo
+          (u) => u["Registration ID"] === registrationNo
         );
         if (userTrack) {
           dailyQuizData.push(userTrack);
@@ -548,10 +548,11 @@ router.post("/saveDailyQuizData", async (req, res) => {
     });
     if (dailyQuizData.length == 0) {
       const newTrack = {
-        registration_id: registrationNo,
-        Day: req.body.day || "Unknown Day",
-        Date: req.body.date || "Unknown Date",
-        Answer: req.body.answer || "Unknow Answer",
+        "Registration ID": registrationNo,
+        "Day": req.body.day || "Unknown Day",
+        "Date": req.body.date || "Unknown Date",
+        "Answer": req.body.answer || "Unknow Answer",
+        "Marks": req.body.marks || '0'
       };
       const firstDocRef = db
         .collection(collectionName)
