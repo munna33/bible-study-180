@@ -2,6 +2,7 @@ const express = require("express");
 const youtubeRouter = require('./routes/youtube');
 const adminRouter = require('./routes/admin');
 const whatsappRouter = require('./routes/whatsapp');
+const bibleStudy = require('./routes/bible-study');
 const NodeCache = require("node-cache");
 const sheetCache = new NodeCache({ stdTTL: 60 }); // cache 60s (tweak as needed)
 
@@ -28,6 +29,7 @@ app.use(
 app.use('/youtube', youtubeRouter);
 app.use('/admin', adminRouter);
 app.use('/whatsapp', whatsappRouter);
+app.use('/bibleStudy', bibleStudy);
 const auth = new google.auth.GoogleAuth({
   credentials,
   scopes: [
@@ -273,7 +275,7 @@ async function getLastMonthData(req) {
 }
 async function login(result, req, indexes) {
   let responseData = {};
-  const groupName = req.body.appType === 'NEW' ? "New Testament": "Old_New Testament";
+  const groupName = req.body.appType=== 'OLD_NEW_BATCH6' ? "Registrations": req.body.appType === 'NEW' ? "New Testament": "Old_New Testament";
   await Promise.all(
     result.map(async (item) => {
       if (item.title === groupName) {
