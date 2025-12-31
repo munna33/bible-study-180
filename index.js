@@ -1,8 +1,8 @@
 const express = require("express");
-const youtubeRouter = require('./routes/youtube');
-const adminRouter = require('./routes/admin');
-const whatsappRouter = require('./routes/whatsapp');
-const bibleStudy = require('./routes/bible-study');
+const youtubeRouter = require("./routes/youtube");
+const adminRouter = require("./routes/admin");
+const whatsappRouter = require("./routes/whatsapp");
+const bibleStudy = require("./routes/bible-study");
 const NodeCache = require("node-cache");
 const sheetCache = new NodeCache({ stdTTL: 60 }); // cache 60s (tweak as needed)
 
@@ -26,10 +26,10 @@ app.use(
     origin: "*",
   })
 );
-app.use('/youtube', youtubeRouter);
-app.use('/admin', adminRouter);
-app.use('/whatsapp', whatsappRouter);
-app.use('/bibleStudy', bibleStudy);
+app.use("/youtube", youtubeRouter);
+app.use("/admin", adminRouter);
+app.use("/whatsapp", whatsappRouter);
+app.use("/bibleStudy", bibleStudy);
 const auth = new google.auth.GoogleAuth({
   credentials,
   scopes: [
@@ -154,41 +154,60 @@ app.get("/score/:id", async (req, res) => {
   //   );
   // });
   let respData = [];
-  const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"]
+  const indexes = ["Date", "Score", "FullName", "RegID", "Answer", "Reference"];
   respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
     const formatData = formatAllSheetData(data);
     res.json(formatData);
   });
 });
 app.post("/login/:id", async (req, res) => {
-  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
-    auth, //auth object
-    spreadsheetId: req.params.id,
-  });
-  let response = { data: [] };
-  // res.send(spreadsheets)
-  const result = spreadsheets.data.sheets.map((item) => {
-    return {
-      title: item.properties.title,
-      sheetId: item.properties.sheetId,
-      index: item.properties.index,
-    };
-  });
-  // result.splice(0,1);
-  let respData = [];
-  const indexes = [
-    "RegID",
-    "Name",
-    "Church",
-    "Contact",
-    "Village",
-    "Occupation",
-    "Remarks",
-  ];
-  respData = await login(result, req, indexes).then((data) => {
-    res.json(data);
-  });
+  try {
+    const indexes = [
+      "RegID",
+      "Name",
+      "Church",
+      "Contact",
+      "Village",
+      "Occupation",
+      "Remarks",
+    ];
+
+    const groupName =
+      req.body.appType === "OLD_NEW_BATCH6"
+        ? "Registrations"
+        : req.body.appType === "NEW"
+        ? "New Testament"
+        : "Old_New Testament";
+
+    const responseData = await loginOptimized(
+      req.params.id,
+      req.body.regID,
+      groupName,
+      indexes
+    );
+
+    res.json(responseData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Login failed" });
+  }
 });
+async function loginOptimized(spreadsheetId, regID, sheetName, indexes) {
+  const sheetData = await googleSheetsInstance.spreadsheets.values.get({
+    auth,
+    spreadsheetId,
+    range: sheetName,
+  });
+
+  const formattedData = formatRowData(indexes, sheetData.data.values);
+
+  const user = formattedData.find(
+    (item) => item.RegID?.trim().toLowerCase() === regID.trim().toLowerCase()
+  );
+
+  return { user };
+}
+
 app.get("/getLastMonthData/:id", async (req, res) => {
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
@@ -214,8 +233,8 @@ app.get("/getLastMonthData/:id", async (req, res) => {
   });
 });
 
-app.get("/getOnlineQuiz/score/:id", async(req,res) => {
-    const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+app.get("/getOnlineQuiz/score/:id", async (req, res) => {
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
   });
@@ -229,12 +248,28 @@ app.get("/getOnlineQuiz/score/:id", async(req,res) => {
     };
   });
   let respData = [];
-  const indexes = ["RegistrationID", "Name", "QuizID", "YourScore", "TotalScore", "Q1","Q2", "Q3","Q4", "Q5","Q6", "Q7","Q8", "Q9","Q10"]
+  const indexes = [
+    "RegistrationID",
+    "Name",
+    "QuizID",
+    "YourScore",
+    "TotalScore",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+    "Q9",
+    "Q10",
+  ];
   respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
     // const formatData = formatAllSheetData(data);
     res.json(sortByProperty(data));
   });
-})
+});
 async function getLastMonthData(req) {
   const indexes = [
     "Rank",
@@ -275,7 +310,12 @@ async function getLastMonthData(req) {
 }
 async function login(result, req, indexes) {
   let responseData = {};
-  const groupName = req.body.appType=== 'OLD_NEW_BATCH6' ? "Registrations": req.body.appType === 'NEW' ? "New Testament": "Old_New Testament";
+  const groupName =
+    req.body.appType === "OLD_NEW_BATCH6"
+      ? "Registrations"
+      : req.body.appType === "NEW"
+      ? "New Testament"
+      : "Old_New Testament";
   await Promise.all(
     result.map(async (item) => {
       if (item.title === groupName) {
@@ -291,12 +331,14 @@ async function login(result, req, indexes) {
         );
         // console.log('req', req.body)
         responseData["user"] = userDetails.find(
-          (item) => item.RegID.trim().toLowerCase() === req.body.regID.trim().toLowerCase()
+          (item) =>
+            item.RegID.trim().toLowerCase() ===
+            req.body.regID.trim().toLowerCase()
         );
       }
     })
   );
-   return responseData;
+  return responseData;
 }
 async function getAllSpreadsheetData(result, req, indexes) {
   const cacheKey = `allData_${req.params.id}`;
@@ -334,20 +376,14 @@ async function getAllSpreadsheetData(result, req, indexes) {
   return responseData;
 }
 function formatRowData(keys, data) {
-  let result = [];
-  if (data) {
-    for (let i = 1; i < data.length; i++) {
-      if (data[i].length > 0) {
-        let obj = {};
-        data[i].forEach((element, index) => {
-          obj[keys[index]] = element;
-        });
-        result.push(obj);
-      }
-    }
-  }
-
-  return result;
+  if (!data || data.length <= 1) return [];
+  return data.slice(1).map((row) => {
+    const obj = {};
+    keys.forEach((key, index) => {
+      obj[key] = row[index] || "";
+    });
+    return obj;
+  });
 }
 function formatAllSheetData(data, lastMonthData) {
   const groupedData = {};
@@ -374,14 +410,16 @@ function formatAllSheetData(data, lastMonthData) {
               groupedData[registrationId.toUpperCase()] = { data: [value] };
             } else {
               // const dateObj = new Date(value["Date"].split(' ')[0]);
-              const currentDay = value["Day"] = day;
-              groupedData[registrationId.toUpperCase()]['data'] = groupedData[registrationId.toUpperCase()].data.filter(dataItem =>  {
-                const newDateObj = new Date(dataItem.Date.split(' ')[0]);
-                if(currentDay !== dataItem.Day) {
+              const currentDay = (value["Day"] = day);
+              groupedData[registrationId.toUpperCase()]["data"] = groupedData[
+                registrationId.toUpperCase()
+              ].data.filter((dataItem) => {
+                const newDateObj = new Date(dataItem.Date.split(" ")[0]);
+                if (currentDay !== dataItem.Day) {
                   return true;
                 }
-              })
-              groupedData[registrationId.toUpperCase()].data.push(value)
+              });
+              groupedData[registrationId.toUpperCase()].data.push(value);
             }
 
             let score = 0;
@@ -514,13 +552,7 @@ app.get("/getOnlineQuiz/:id", async (req, res) => {
     };
   });
   let responseData = [];
-  const indexes = [
-    "QNO",
-    "Question",
-    "Options",
-    "Answer",
-    "Reference"
-  ];
+  const indexes = ["QNO", "Question", "Options", "Answer", "Reference"];
   // const indexes = [
   //   "BookNo",
   //   "QNO",
@@ -539,7 +571,7 @@ app.get("/getOnlineQuiz/:id", async (req, res) => {
       randomQuestionsData[item] = randomQuestions(data, item);
     });
 
-    res.json(randomQuestionsData) ;
+    res.json(randomQuestionsData);
     // return randomQuestionsData;
   });
 });
@@ -565,17 +597,21 @@ app.get("/getOnlineFinalQuiz/:id", async (req, res) => {
     "Answer",
     "Reference",
     "Book Name",
-    "Level"
+    "Level",
   ];
   responseData = getAllQuizData(result, req, indexes).then((data) => {
     // res.json(data);
     const exmaNames = Object.keys(data);
     let randomQuestionsData = {};
     exmaNames.forEach((item) => {
-      randomQuestionsData[item] = randomQuestions(data, item, req.query.appType);
+      randomQuestionsData[item] = randomQuestions(
+        data,
+        item,
+        req.query.appType
+      );
     });
 
-    res.json(randomQuestionsData) ;
+    res.json(randomQuestionsData);
     // return randomQuestionsData;
   });
 });
@@ -605,8 +641,8 @@ async function getAllQuizData(result, req, indexes) {
 function getUserDataByID(userID, data) {
   return { userData: data[userID] };
 }
-app.post("/quiz/track/:id", async(req,res)=> {
-const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+app.post("/quiz/track/:id", async (req, res) => {
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
   });
@@ -625,9 +661,9 @@ const spreadsheets = await googleSheetsInstance.spreadsheets.get({
       res.json({ message: "Something went wrong. Please try again!" });
     }
   });
-})
-app.get("/quiz/track/getDetails/:id", async(req, res) => {
-   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+});
+app.get("/quiz/track/getDetails/:id", async (req, res) => {
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
   });
@@ -643,7 +679,7 @@ app.get("/quiz/track/getDetails/:id", async(req, res) => {
   getQuizSheetsData(result, req, res).then((data) => {
     res.json(data);
   });
-})
+});
 app.post("/submitQuiz/:id", async (req, res) => {
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
@@ -685,8 +721,8 @@ app.get("/quizDetails/:id", async (req, res) => {
   });
   // res.json(this.getQuizSheetsData) ;
 });
-app.get("/getPuzzle/score/:id", async(req, res) => {
-   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+app.get("/getPuzzle/score/:id", async (req, res) => {
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
   });
@@ -700,14 +736,20 @@ app.get("/getPuzzle/score/:id", async(req, res) => {
     };
   });
   let respData = [];
-  const indexes = ["SNO", "RegistrationID", "YourScore", "TotalScore", "AdditionalMarks"]
+  const indexes = [
+    "SNO",
+    "RegistrationID",
+    "YourScore",
+    "TotalScore",
+    "AdditionalMarks",
+  ];
   respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
     // const formatData = formatAllSheetData(data);
     res.json(sortByProperty(data));
   });
-})
-app.get("/getFinalOnlineExamScore/:id", async(req, res) => {
-   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+});
+app.get("/getFinalOnlineExamScore/:id", async (req, res) => {
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
   });
@@ -721,21 +763,27 @@ app.get("/getFinalOnlineExamScore/:id", async(req, res) => {
     };
   });
   let respData = [];
-  const indexes = ["RegistrationID", "Name", "QuizID", "Your Score", "TotalScore"]
+  const indexes = [
+    "RegistrationID",
+    "Name",
+    "QuizID",
+    "Your Score",
+    "TotalScore",
+  ];
   respData = await getAllSpreadsheetData(result, req, indexes).then((data) => {
     // const formatData = formatAllSheetData(data);
     // res.json(sortByProperty(data));
-   res.json(getUserRanksData(req.query.appType, data));
+    res.json(getUserRanksData(req.query.appType, data));
     // res.json(data)
   });
-})
+});
 function getUserRanksData(appType, data) {
   const groupedData = {};
   for (const sheet in data) {
     if (data[sheet] && Array.isArray(data[sheet])) {
-      data[sheet].forEach(item => {
+      data[sheet].forEach((item) => {
         const regId = item.RegistrationID?.toUpperCase().trim();
-        const appTypeMatch = appType === 'OLD_NEW' ? 'BS5'  : 'B5N';
+        const appTypeMatch = appType === "OLD_NEW" ? "BS5" : "B5N";
         if (regId && regId.startsWith(appTypeMatch)) {
           if (!groupedData[regId]) {
             groupedData[regId] = { data: [], totalScore: 0 };
@@ -792,51 +840,76 @@ async function getQuizSheetsData(result, req, res) {
   console.log("📊 Fresh quiz data fetched from Google Sheets");
   return responseData;
 }
- function randomQuestions(spreadsheetData, item, appType) {
-    const groupedByBookName = spreadsheetData[item].reduce((acc, item) => {
-      const key =item['Book Name'];
-      if (!acc[key]) {
-        acc[key] = [];
-      }
-      acc[key].push(item);
-      return acc;
-    }, {});
-    // console.log('groupedBy 0', groupedByBookName)
-    let result = []
-    let lowLevelItems = []
-    let middleLevelItems = []
-    let highLevelItems = []
-    const noOfQuestions = appType == 'OLD_NEW' ?  item == 'OLD_NEW' ? 40 : 20 : 40;
-    for(const key in groupedByBookName) {
-      
-      if(groupedByBookName.hasOwnProperty(key)){
-      highLevelItems = [...highLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'H')))
-      middleLevelItems = [...middleLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'M')))
-      lowLevelItems = [...lowLevelItems].concat((groupedByBookName[key].filter(item => item.Level == 'L')))
-    
-      }
+function randomQuestions(spreadsheetData, item, appType) {
+  const groupedByBookName = spreadsheetData[item].reduce((acc, item) => {
+    const key = item["Book Name"];
+    if (!acc[key]) {
+      acc[key] = [];
     }
-    if(item == 'OLD_NEW' ) {
-     highLevelItems = getRandomItems(highLevelItems, Math.floor(noOfQuestions * 0.6));
-     middleLevelItems = getRandomItems(middleLevelItems, Math.floor(noOfQuestions * 0.3));
-     lowLevelItems = getRandomItems(lowLevelItems, Math.floor(noOfQuestions * 0.1));
-     result = [...result, ...highLevelItems, ...middleLevelItems, ...lowLevelItems];
-    } else {
-      highLevelItems = getRandomItems(highLevelItems, Math.floor(noOfQuestions * 0.7));
-      middleLevelItems = getRandomItems(middleLevelItems, Math.floor(noOfQuestions * 0.3));
-      result = [...result, ...highLevelItems, ...middleLevelItems];
+    acc[key].push(item);
+    return acc;
+  }, {});
+  // console.log('groupedBy 0', groupedByBookName)
+  let result = [];
+  let lowLevelItems = [];
+  let middleLevelItems = [];
+  let highLevelItems = [];
+  const noOfQuestions =
+    appType == "OLD_NEW" ? (item == "OLD_NEW" ? 40 : 20) : 40;
+  for (const key in groupedByBookName) {
+    if (groupedByBookName.hasOwnProperty(key)) {
+      highLevelItems = [...highLevelItems].concat(
+        groupedByBookName[key].filter((item) => item.Level == "H")
+      );
+      middleLevelItems = [...middleLevelItems].concat(
+        groupedByBookName[key].filter((item) => item.Level == "M")
+      );
+      lowLevelItems = [...lowLevelItems].concat(
+        groupedByBookName[key].filter((item) => item.Level == "L")
+      );
     }
-    result = shuffleOptions(result);
-    return result.sort(() => Math.random() - 0.5);
   }
+  if (item == "OLD_NEW") {
+    highLevelItems = getRandomItems(
+      highLevelItems,
+      Math.floor(noOfQuestions * 0.6)
+    );
+    middleLevelItems = getRandomItems(
+      middleLevelItems,
+      Math.floor(noOfQuestions * 0.3)
+    );
+    lowLevelItems = getRandomItems(
+      lowLevelItems,
+      Math.floor(noOfQuestions * 0.1)
+    );
+    result = [
+      ...result,
+      ...highLevelItems,
+      ...middleLevelItems,
+      ...lowLevelItems,
+    ];
+  } else {
+    highLevelItems = getRandomItems(
+      highLevelItems,
+      Math.floor(noOfQuestions * 0.7)
+    );
+    middleLevelItems = getRandomItems(
+      middleLevelItems,
+      Math.floor(noOfQuestions * 0.3)
+    );
+    result = [...result, ...highLevelItems, ...middleLevelItems];
+  }
+  result = shuffleOptions(result);
+  return result.sort(() => Math.random() - 0.5);
+}
 function shuffleOptions(questions) {
-  let result = questions.map(question => {
-    if (question.Options && !question.Options.includes('పైవన్నీ') ) {
-      const options = question.Options.split(',').map(opt => opt.trim());
+  let result = questions.map((question) => {
+    if (question.Options && !question.Options.includes("పైవన్నీ")) {
+      const options = question.Options.split(",").map((opt) => opt.trim());
       const shuffled = options.sort(() => Math.random() - 0.5);
       return {
         ...question,
-        Options: shuffled.join(', ')
+        Options: shuffled.join(", "),
       };
     }
     return question;
@@ -844,17 +917,17 @@ function shuffleOptions(questions) {
   return result;
 }
 function getRandomItems(arr, n) {
-    const result = [];
-    const taken = new Array(arr.length);
-    if(n > arr.length) n = arr.length;
-    while (result.length < n) {
-        const randomIndex = Math.floor(Math.random() * arr.length);
-        if (!taken[randomIndex]) {
-            taken[randomIndex] = true;
-            result.push(arr[randomIndex]);
-        } 
+  const result = [];
+  const taken = new Array(arr.length);
+  if (n > arr.length) n = arr.length;
+  while (result.length < n) {
+    const randomIndex = Math.floor(Math.random() * arr.length);
+    if (!taken[randomIndex]) {
+      taken[randomIndex] = true;
+      result.push(arr[randomIndex]);
     }
-    return result;
+  }
+  return result;
 }
 async function insertData(req, sheet) {
   // console.log('sheet name', sheet)
@@ -863,7 +936,7 @@ async function insertData(req, sheet) {
   const headers = Object.keys(req.body);
   const columnCount = headers.length;
   // const lastColumnLetter = String.fromCharCode(64 + columnCount);
-  const lastColumnLetter = getExcelColumnName(columnCount+5);
+  const lastColumnLetter = getExcelColumnName(columnCount + 5);
 
   const googleSheets = googleSheetsInstance.spreadsheets;
   try {
@@ -952,17 +1025,17 @@ async function insertData(req, sheet) {
   }
 }
 function getExcelColumnName(n) {
-    let columnName = '';
-    while (n > 0) {
-        let rem = (n - 1) % 26;
-        columnName = String.fromCharCode(65 + rem) + columnName;
-        n = Math.floor((n - 1) / 26);
-    }
-    return columnName;
+  let columnName = "";
+  while (n > 0) {
+    let rem = (n - 1) % 26;
+    columnName = String.fromCharCode(65 + rem) + columnName;
+    n = Math.floor((n - 1) / 26);
+  }
+  return columnName;
 }
 function sortByProperty(data) {
-    for (const key in data) {
-      data[key].sort((a, b) => b['YourScore'] - a['YourScore']);
-    }
-return data;
+  for (const key in data) {
+    data[key].sort((a, b) => b["YourScore"] - a["YourScore"]);
+  }
+  return data;
 }
