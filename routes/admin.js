@@ -577,10 +577,11 @@ router.post("/saveDailyQuizData", async (req, res) => {
       const docSnapshot = await docRef.get();
 
       const updatedTrack = {
-        registration_id: registrationNo,
+        "Registration ID": registrationNo,
         Day: req.body.day || "Unknown Day",
         Date: req.body.date || "Unknown Date",
         Answer: req.body.answer || "Unknown Answer",
+        "Marks": req.body.marks || 0
       };
 
       // 👉 IF document does NOT exist → CREATE
@@ -605,6 +606,7 @@ router.post("/saveDailyQuizData", async (req, res) => {
             ...users[userIndex],
             Answer: req.body.answer || users[userIndex].Answer,
             Date: req.body.date || users[userIndex].Date,
+            "Marks": req.body.marks || 0
           };
         }
         // User does NOT exist → add new
@@ -622,9 +624,9 @@ router.post("/saveDailyQuizData", async (req, res) => {
       }
     }
     let result = dailyQuizData;
-    if (!dailyQuizData || dailyQuizData.length === 0) {
-      return res.status(404).send({ error: "No puzzle scores found" });
-    }
+    // if (!dailyQuizData || dailyQuizData.length === 0) {
+    //   return res.status(404).send({ error: "No puzzle scores found" });
+    // }
 
     res.send(result);
   } catch (error) {
@@ -632,5 +634,26 @@ router.post("/saveDailyQuizData", async (req, res) => {
     res.status(500).send({ error: error.message });
   }
 });
-
+router.get('/getDailyQuizScore', async(req,res) => {
+  try {
+    const collectionName = 'daily-quiz-batch6';
+    const quizSnapshot = await db.collection(collectionName).get(0);
+    let quizData = [];
+      if(quizSnapshot && !quizSnapshot.empty) {
+        const obj = {};
+        quizSnapshot.forEach((doc) => {
+          
+          obj[doc.id] = doc.data().users || [];
+         
+        })
+        quizData.push(obj);
+        res.send({quizData: quizData})
+      } else {
+        res.send({quizData: []})
+      }
+  } catch(error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+})
 module.exports = router;
