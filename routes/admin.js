@@ -651,7 +651,7 @@ router.get('/getDailyQuizScore', async (req, res) => {
         const uniqueUsersMap = new Map();
 
         users.forEach(user => {
-          const regId = user['Registration ID'];
+          const regId = user['Registration ID'] || user['registration_id'];
           if (regId && !uniqueUsersMap.has(regId)) {
             uniqueUsersMap.set(regId, user);
           }
