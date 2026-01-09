@@ -634,26 +634,41 @@ router.post("/saveDailyQuizData", async (req, res) => {
     res.status(500).send({ error: error.message });
   }
 });
-router.get('/getDailyQuizScore', async(req,res) => {
+router.get('/getDailyQuizScore', async (req, res) => {
   try {
     const collectionName = 'daily-quiz-batch6';
-    const quizSnapshot = await db.collection(collectionName).get(0);
+    const quizSnapshot = await db.collection(collectionName).get();
+
     let quizData = [];
-      if(quizSnapshot && !quizSnapshot.empty) {
-        const obj = {};
-        quizSnapshot.forEach((doc) => {
-          
-          obj[doc.id] = doc.data().users || [];
-         
-        })
-        quizData.push(obj);
-        res.send({quizData: quizData})
-      } else {
-        res.send({quizData: []})
-      }
-  } catch(error) {
+
+    if (quizSnapshot && !quizSnapshot.empty) {
+      const obj = {};
+
+      quizSnapshot.forEach((doc) => {
+        const users = doc.data().users || [];
+
+        // Deduplicate users based on Registration ID
+        const uniqueUsersMap = new Map();
+
+        users.forEach(user => {
+          const regId = user['Registration ID'];
+          if (regId && !uniqueUsersMap.has(regId)) {
+            uniqueUsersMap.set(regId, user);
+          }
+        });
+
+        obj[doc.id] = Array.from(uniqueUsersMap.values());
+      });
+
+      quizData.push(obj);
+      res.send({ quizData });
+    } else {
+      res.send({ quizData: [] });
+    }
+  } catch (error) {
     console.error(error);
     res.status(500).send({ error: error.message });
   }
-})
+});
+
 module.exports = router;
