@@ -695,6 +695,7 @@ app.post("/submitQuiz/:id", async (req, res) => {
   });
   insertData(req, req.body["Quiz ID"].trim()).then((data) => {
     if (data) {
+      sheetCache.del([`quizData_${req.params.id}`]); // Invalidate cache
       res.json({ message: "Quiz submitted successfully" });
     } else {
       res.json({ message: "Something went wrong. Please try again!" });
