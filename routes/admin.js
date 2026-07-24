@@ -670,5 +670,23 @@ router.get('/getDailyQuizScore', async (req, res) => {
     res.status(500).send({ error: error.message });
   }
 });
+router.get("/programDetails", async (req, res) => {
+  try {
+    const collectionName = "bible_study_programs";
+    const programSnapshot = await db.collection(collectionName).get();
+    let programDetails = [];
+    if (programSnapshot && !programSnapshot.empty) {
+      programSnapshot.forEach((doc) => {
+        programDetails.push({ id: doc.id, ...doc.data() });
+      });
+      res.send({ programDetails: programDetails });
+    } else {
+      res.send({ programDetais: [] });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+});
 
 module.exports = router;
