@@ -3,6 +3,7 @@ const youtubeRouter = require("./routes/youtube");
 const adminRouter = require("./routes/admin");
 const whatsappRouter = require("./routes/whatsapp");
 const bibleStudy = require("./routes/bible-study");
+const programsRouter = require('./routes/programs')
 const NodeCache = require("node-cache");
 const sheetCache = new NodeCache({ stdTTL: 60 }); // cache 60s (tweak as needed)
 
@@ -30,6 +31,8 @@ app.use("/youtube", youtubeRouter);
 app.use("/admin", adminRouter);
 app.use("/whatsapp", whatsappRouter);
 app.use("/bibleStudy", bibleStudy);
+// app.use("/humanity", humanityRouter);
+app.use("/programs", programsRouter);
 const auth = new google.auth.GoogleAuth({
   credentials,
   scopes: [

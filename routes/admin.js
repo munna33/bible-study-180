@@ -8,8 +8,9 @@ const multer = require("multer");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const admin = require("firebase-admin");
-const { result } = require("lodash");
+const { result, uniqueId } = require("lodash");
 const { google } = require("googleapis");
+const { v4: uuidv4 } = require('uuid');
 router.use(
   bodyParser.urlencoded({
     extended: true,
@@ -689,4 +690,165 @@ router.get("/programDetails", async (req, res) => {
   }
 });
 
+router.get("/programDetails", async (req, res) => {
+  try {
+    const collectionName = "bible_study_programs";
+    const programSnapshot = await db.collection(collectionName).get();
+    let programDetails = [];
+    if (programSnapshot && !programSnapshot.empty) {
+      programSnapshot.forEach((doc) => {
+        programDetails.push({ id: doc.id, ...doc.data() });
+      });
+      res.send({ selfProgramDeatis: programDetails });
+    } else {
+      res.send({ selfProgramDeatis: [] });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+});
+router.post("/createProgram", async (req, res) => {
+  try {
+    const collectionName = "bible_study_programs";
+    const { name, description, duration } = req.body;
+    const newProgram = {
+      name,
+      description,
+      duration,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    const docRef = await db.collection(collectionName).add(newProgram);
+    res.send({ id: docRef.id, ...newProgram });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+router.post("/createSelfProgram", async (req, res) => {
+      try {
+          const collectionName = "self_study_programs";
+          const {
+              bibleType,
+              durationType,
+              startDate,
+              endDate,
+              schedule,
+              totalDays,
+              totalMonths,
+              selectedBooks,
+              createdBy,
+             } = req.body;
+          const newProgram = {
+              programId: uuidv4(), 
+              bibleType,
+              durationType,
+              startDate,
+              endDate,
+              schedule,
+              totalDays,
+              totalMonths,
+              selectedBooks,
+              createdBy,
+              createdAt : new Date()
+          }
+          // Remove undefined values
+          const cleanProgram = JSON.parse(JSON.stringify(newProgram));
+          firstDocRef = db.collection(collectionName).doc(createdBy);
+          const docSnapshot = await firstDocRef.get();
+          if(docSnapshot.exists) {
+              await firstDocRef.update({
+                  programs: admin.firestore.FieldValue.arrayUnion(cleanProgram)
+              })
+          } else {
+              await firstDocRef.set({
+                  programs: [cleanProgram],
+              })
+          }
+           let selfProgramDetails = [];
+            const programSnapshot = await db.collection(collectionName).get(createdBy);
+          if(programSnapshot && !programSnapshot.empty) {
+            programSnapshot.forEach((doc) => {
+              selfProgramDetails = doc.data().programs;
+            });
+          }
+          res.send({
+              message: "Successfully created your self Program",
+              selfProgramDeatis: selfProgramDetails
+          })
+      } catch(error) {
+          console.log(error);
+          res.status(500).send({error: error.message});
+      }
+})
+router.post("/getSelfPrograms", async(req, res) => {
+  try {
+    const userName = req.body.userName;
+    const collectionName= "self_study_programs";
+    const programSnapshot = await db.collection(collectionName).get(userName);
+    let selfProgramDetails = [];
+    if(programSnapshot && !programSnapshot.empty) {
+      programSnapshot.forEach((doc) => {
+        selfProgramDetails = doc.data().programs;
+      });
+      res.send({selfProgramDeatis: selfProgramDetails})
+    } else {
+      res.send({
+        selfProgramDeatis: []
+      })
+    }
+  } catch(error) {
+    console.log(error);
+    res.status(500).send(error.message)
+  }
+})
+router.delete("/deleteSelfProgram", async (req, res) => {
+  try {
+    const id = req.query.id;
+    const userName = req.query.userName; 
+    
+    if (!userName) {
+      return res.status(400).send("userName is required");
+    }
+
+    const collectionName = "self_study_programs";
+    
+    // 1. Get a reference to the user's specific document
+    const userDocRef = db.collection(collectionName).doc(userName);
+    const userDoc = await userDocRef.get();
+
+    // 2. Check if the document exists
+    if (!userDoc.exists) {
+      return res.status(404).send("User document not found.");
+    }
+
+    // 3. Extract the existing array (default to empty array if it doesn't exist)
+    const currentPrograms = userDoc.data().programs || [];
+
+    // 4. Filter out the object that matches the programId
+    const updatedPrograms = currentPrograms.filter(program => program.programId !== id);
+
+    // Check if anything was actually removed (optional, but good for returning accurate status)
+    if (currentPrograms.length === updatedPrograms.length) {
+      return res.status(404).send("No matching program ID found in the array.");
+    }
+
+    // 5. Update the document with the new array
+    await userDocRef.update({
+      programs: updatedPrograms
+    });
+    let selfProgramDetails = [];
+            const programSnapshot = await db.collection(collectionName).get(userName);
+          if(programSnapshot && !programSnapshot.empty) {
+            programSnapshot.forEach((doc) => {
+              selfProgramDetails = doc.data().programs;
+            });
+          }
+    return res.status(200).send({ message: "Program removed from array successfully", selfProgramDetails: selfProgramDetails });
+  } catch (error) {
+    console.error("Error while deleting the Self Program:", error);
+    return res.status(500).send(error.message);
+  }
+});
 module.exports = router;
