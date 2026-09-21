@@ -8,6 +8,7 @@ const multer = require("multer");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const admin = require("firebase-admin");
+const jwt = require("jsonwebtoken");
 const { result, uniqueId } = require("lodash");
 const { google } = require("googleapis");
 const { v4: uuidv4 } = require('uuid');
@@ -149,12 +150,101 @@ router.get("/getAllUsers", async (req, res) => {
     res.status(500).send({ error: error.message });
   }
 });
+
+router.post("/adminLogin", async (req, res, next) => {
+  const { username, password } = req.body;
+
+  // Leave legacy login requests for the existing login handler below.
+  if (username === undefined && password === undefined) {
+    return next();
+  }
+
+  try {
+    const jwtSecret = process.env.ADMIN_JWT_SECRET || credentials.admin_jwt_secret;
+    if (!jwtSecret) {
+      return res.status(500).send({
+        token: null,
+        authenticated: false,
+        success: false,
+        admin: null,
+        error: "Admin JWT secret is not configured",
+      });
+    }
+
+    if (!username || !password) {
+      return res.status(400).send({
+        token: null,
+        authenticated: false,
+        success: false,
+        admin: null,
+        error: "username and password are required",
+      });
+    }
+
+    const adminSnapshot = await db
+      .collection("admin")
+      .where("userName", "==", username)
+      .limit(1)
+      .get();
+
+    if (adminSnapshot.empty) {
+      return res.status(401).send({
+        token: null,
+        authenticated: false,
+        success: false,
+        admin: null,
+        error: "Invalid username or password",
+      });
+    }
+
+    const adminDocument = adminSnapshot.docs[0];
+    const adminData = adminDocument.data();
+
+    if (adminData.password !== password) {
+      return res.status(401).send({
+        token: null,
+        authenticated: false,
+        success: false,
+        admin: null,
+        error: "Invalid username or password",
+      });
+    }
+
+    return res.send({
+      token: jwt.sign(
+        {
+          adminId: adminDocument.id,
+          username: adminData.userName,
+        },
+        jwtSecret,
+        { expiresIn: "1d" }
+      ),
+      authenticated: true,
+      success: true,
+      admin: {
+        id: adminDocument.id,
+        username: adminData.userName,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send({
+      token: null,
+      authenticated: false,
+      success: false,
+      admin: null,
+      error: error.message,
+    });
+  }
+});
+
 router.post("/login", async (req, res) => {
   try {
     const appType = req.body.appType;
-    collectionName = appType === "NEW" ? "new_testament" : "old_new_testament";
+    // collectionName = appType === "NEW" ? "new_testament" : "old_new_testament";
     const registrationNo = req.body.regID;
-    const usersSnapshot = await db.collection("USERS").get();
+    const collectionName = `user_registrations_batch${req.body.batchNo || "6"}`;
+    const usersSnapshot = await db.collection(collectionName).get();
     const users = usersSnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
@@ -171,12 +261,12 @@ router.post("/login", async (req, res) => {
     } else {
       const userData = user.users.find((u) => u["Reg No"] === registrationNo);
       responseObject = {
-        RegID: userData["Reg No"],
-        Name: userData["Full Name / పూర్తి పేరు"],
-        Church: userData["Church Name / సంఘము పేరు"],
-        Contact: userData["Contact No / ఫోన్ నెం"],
-        Village: userData["Village Name / ఊరి పేరు"],
-        Occupation: userData["Occupation / వృత్తి"],
+        RegID: userData["Reg No"] || userData["registrationID"],
+        Name: userData["Full Name / పూర్తి పేరు"] || userData["fullName"],
+        Church: userData["Church Name / సంఘము పేరు"] || userData["churchName"],
+        Contact: userData["Contact No / ఫోన్ నెం"] || userData["contactNo"],
+        Village: userData["Village Name / ఊరి పేరు"] || userData["address"],
+        Occupation: userData["Occupation / వృత్తి"] || userData["occupation"],
         Batch: appType,
       };
       res.send({ user: responseObject });
@@ -193,59 +283,79 @@ router.get("/getAllCollections", async (req, res) => {
     res.status(500).send({ error: error.message });
   }
 });
-router.post("/getPuzzleScore", async (req, res) => {
+router.get("/getAllUserCollections", async (req, res) => {
   try {
-    const appType = req.body.appType;
-    const collectionName =
-      appType === "NEW" ? "puzzle_results_new" : "puzzle_results_old_new";
-    const puzzleSnapshot = await db.collection(collectionName).get();
-    let puzzles = [...puzzleSnapshot.docs].map((doc) => {
-      let object = {};
-      object[doc.id] = doc.data().users;
-      return object;
-    });
-    if (!puzzles || puzzles.length === 0) {
-      return res.status(404).send({ error: "No puzzle scores found" });
-    }
-    let result = {};
-    puzzles.map((puzzle) => {
-      const key = Object.keys(puzzle)[0];
-      let value = puzzle[key];
-      // const obj = {};
-      value = value.map((item, index) => {
+    const collections = await db.listCollections();
+    const collectionNames = collections
+      .filter((col) => col.id.includes("user_registrations"))
+      .map((col) => {
+        const batchNo = col.id.split("user_registrations_batch")[1];
         return {
-          SNO: item["S.No"],
-          RegistrationID: item["Registered No"],
-          YourScore: item["Scored Marks"],
-          TotalScore: item["Total Marks"],
+          collectionId: col.id,
+          collectionName: col.id.replaceAll("_", " ").toUpperCase(),
+          batchNo: batchNo
         };
-      });
-      result[key] = value;
-      // result.push(obj);
     });
-
-    res.send(result);
+    res.send(collectionNames);
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: error.message });
   }
 });
+router.get("/getProgramDetailsByBatch", async (req, res) => {
+  try {
+    const { batchNo } = req.query;
+
+    if (!batchNo) {
+      return res.status(400).send({ error: "batchNo is required" });
+    }
+
+    const programSnapshot = await db.collection("bible_study_programs").get();
+    let program = null;
+
+    for (const doc of programSnapshot.docs) {
+      const batches = doc.data().batches || [];
+      program = batches.find(
+        (batch) => String(batch.batch_no) === String(batchNo)
+      );
+
+      if (program) break;
+    }
+
+    if (!program) {
+      return res.status(404).send({ error: "Program batch not found" });
+    }
+
+    res.send({
+      name: program.name || program.church_name,
+      batch_no: program.batch_no,
+      conducting_by: program.conducting_by,
+      whatsappgroupLink: program.whatsapp_group_link,
+      duration: program.duration,
+      schedule_dates: program.schedule_dates,
+      type: program.type,
+      church_name: program.church_name,
+      contact_no: program.contact_no, 
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
 router.post("/track", async (req, res) => {
   try {
-    //    const req = {
-    //  "RegistrationID": this.userDetails?.RegID,
-    //   "Name": this.userDetails?.Name,
-    //   "Quiz ID": chapterName,
-    //   "Attempted": true,
-    //   "Date": new Date()
-    // }
     const isFinalQuiz = req.body.finalQuiz || false;
-    const appType = req.body.appType;
-    const collectionName = isFinalQuiz
-      ? "final_quiz_tracker"
-      : appType === "NEW"
-      ? "online_quiz_tracker_new"
-      : "online_quiz_tracker_old_new";
+    if(!req.body.batchNo) {
+      res.status(400).send({ error: "batchNo is required" });
+    }
+    const batchNo = req.body.batchNo === "6" ? "old_new" : `batch${req.body.batchNo}`;
+    // const collectionName = isFinalQuiz
+    //   ? "final_quiz_tracker"
+    //   : appType === "NEW"
+    //   ? "online_quiz_tracker_new"
+    //   : "online_quiz_tracker_old_new";
+    const collectionName = isFinalQuiz ? `final_quiz_tracker_${batchNo}` : `online_quiz_tracker_${batchNo}`;
     const registrationNo = req.body.regID;
     const puzzleSnapshot = await db.collection(collectionName).get();
     let puzzles = [];
@@ -265,11 +375,11 @@ router.post("/track", async (req, res) => {
     if (puzzles.length === 0) {
       const newTrack = {
         "Registration ID": registrationNo,
-        Name: req.body.name || "Unknown User",
+        "Name": req.body.name || "Unknown User",
         "Quiz ID": req.body.quizID || "Unknown Quiz",
         // add other fields as needed, e.g.:
-        Attempted: true,
-        Date: new Date().toISOString(),
+        "Attempted": true,
+        "Date": new Date().toISOString(),
       };
       // Replace slashes in quizID to ensure valid Firestore document ID
       const safeQuizID = req.body.quizID.replace(/\//g, "");
@@ -303,13 +413,14 @@ router.post("/track", async (req, res) => {
 });
 router.post("/getQuizTracker", async (req, res) => {
   try {
-    const appType = req.body.appType;
     const isFinalQuiz = req.body.finalQuiz || false;
-    const collectionName = isFinalQuiz
-      ? "final_quiz_tracker"
-      : appType === "NEW"
-      ? "online_quiz_tracker_new"
-      : "online_quiz_tracker_old_new";
+    const batchNo = req.body.batchNo === "6" ? "old_new" : `batch${req.body.batchNo}`;
+    // const collectionName = isFinalQuiz
+    //   ? "final_quiz_tracker"
+    //   : appType === "NEW"
+    //   ? "online_quiz_tracker_new"
+    //   : "online_quiz_tracker_old_new";
+     const collectionName = isFinalQuiz ? `final_quiz_tracker_${batchNo}` : `online_quiz_tracker_${batchNo}`;
     const registrationNo = req.body.regID;
     const puzzleSnapshot = await db.collection(collectionName).get();
     let puzzles = [];
@@ -362,36 +473,36 @@ router.post("/prayerRequest", async (req, res) => {
     res.status(500).send({ error: error.message });
   }
 });
-router.post("/api/proctor/frame", async (req, res) => {
+router.get("/getAllPrayerRequests", async (req, res) => {
   try {
-    const collectionName = "proctor_frames";
-    const frameData = {
-      RegistrationID: req.body.regID || "Unknown",
-      FrameData: req.body.frame || "",
-      Timestamp: new Date().toISOString(),
-      appType: req.body.appType || "UNKNOWN",
-    };
-    const frameRef = db.collection(collectionName).doc();
-    await frameRef.set(frameData);
-    res.send({ message: "Proctor frame data submitted successfully!" });
+    const collectionName = "prayer_requests";
+    const prayerSnapshot = await db.collection(collectionName).get();
+    let prayers = [];
+    if (prayerSnapshot && !prayerSnapshot.empty) {
+      prayerSnapshot.forEach((doc) => {
+        prayers.push({ id: doc.id, ...doc.data() });
+      });
+      res.send({ prayers: prayers.toReversed() });
+    } else {
+      res.send({ prayers: [] });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: error.message });
   }
 });
-
-router.post("/api/proctor/violation", async (req, res) => {
+router.put("/updatePrayerRequestStatus/:id", async (req, res) => {
   try {
-    const collectionName = "proctor_violations";
-    const violationData = {
-      RegistrationID: req.body.regID || "Unknown",
-      ViolationType: req.body.reason || "Unknown",
-      Timestamp: new Date().toISOString(),
-      appType: req.body.appType || "UNKNOWN",
-    };
-    const violationRef = db.collection(collectionName).doc();
-    await violationRef.set(violationData);
-    res.send({ message: "Proctor violation data submitted successfully!" });
+    const collectionName = "prayer_requests";
+    const prayerId = req.params.id;
+    const newStatus = req.body.status || "pending"; // Default to "pending" if not provided
+    const prayerRef = db.collection(collectionName).doc(prayerId);
+    const prayerDoc = await prayerRef.get();
+    if (!prayerDoc.exists) {
+      return res.status(404).send({ error: "Prayer request not found" });
+    }
+    await prayerRef.update({ Status: newStatus });
+    res.send({ message: "Prayer request status updated successfully!" });
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: error.message });
@@ -400,12 +511,16 @@ router.post("/api/proctor/violation", async (req, res) => {
 
 router.post("/registerUser", async (req, res) => {
   try {
-    const users = await getRegisteredUsers();
+    const batchNo = req.body.batchNo || "6";
+    if(!batchNo){
+      return res.status(400).send({ error: "batchNo is required" });
+    };
+    const users = await getRegisteredUsers(batchNo);
     let regId = users[users.length - 1]
-      ? users[users.length - 1].registrationID.replace("BS6", "")
+      ? users[users.length - 1].registrationID.replace(`BS${batchNo}`, "")
       : 0;
-    regId = "BS6" + `${parseInt(regId) + 1}`.padStart(3, "0");
-    const collectionName = "user_registrations_batch6";
+    regId = `BS${batchNo}` + `${parseInt(regId) + 1}`.padStart(3, "0");
+    const collectionName = `user_registrations_batch${batchNo}`;
     const userData = {
       registrationID: regId,
       fullName: req.body.fullName || "Unknown",
@@ -456,8 +571,9 @@ router.post("/registerUser", async (req, res) => {
 router.get("/getUserByNumber", async (req, res) => {
   try {
     const mobileNumber = req.query.mobileNumber;
-    const users = await getRegisteredUsers();
-    const user = users.filter((u) => u.contactNo === mobileNumber);
+    const batchNo = req.query.batchNo || "6";
+    const users = await getRegisteredUsers(batchNo);
+    const user = users.filter((u) => u.contactNo == mobileNumber);
     if (!user || user.length === 0) {
       return res.status(200).send({ users: [], message: "User not found" });
     }
@@ -468,8 +584,24 @@ router.get("/getUserByNumber", async (req, res) => {
   }
 });
 
-async function getRegisteredUsers() {
-  const collectionName = "user_registrations_batch6";
+router.get("/getUsersByBatch", async (req, res) => {
+  try {
+    const { batchNo } = req.query;
+
+    if (!batchNo) {
+      return res.status(400).send({ error: "batchNo is required" });
+    }
+
+    const users = await getRegisteredUsers(batchNo);
+    res.send({ users });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+async function getRegisteredUsers(batchNo) {
+  const collectionName = `user_registrations_batch${batchNo}`;
   const usersSnapshot = await db.collection(collectionName).get();
   let users = [];
   if (usersSnapshot && !usersSnapshot.empty) {
@@ -482,57 +614,14 @@ async function getRegisteredUsers() {
   // }
   return users;
 }
-router.get("/getRegisteredUsers", async (req, res) => {
-  try {
-    const regiId = await getRegisteredUsers();
-    res.send({ registeredUsers: regiId });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: error.message });
-  }
-});
-// getRegisteredUsers();
-router.get("/getProctorViolations", async (req, res) => {
-  try {
-    const collectionName = "proctor_violations";
-    const violationsSnapshot = await db.collection(collectionName).get();
-    let violations = [];
-    if (violationsSnapshot && !violationsSnapshot.empty) {
-      violationsSnapshot.forEach((doc) => {
-        violations.push({ id: doc.id, ...doc.data() });
-      });
 
-      res.send({ violations: violations });
-    } else {
-      res.send({ violations: [] });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: error.message });
-  }
-});
-router.get("/getPoctorFrames", async (req, res) => {
-  try {
-    const collectionName = "proctor_frames";
-    const framesSnapshot = await db.collection(collectionName).get();
-    let frames = [];
-    if (framesSnapshot && !framesSnapshot.empty) {
-      framesSnapshot.forEach((doc) => {
-        frames.push({ id: doc.id, ...doc.data() });
-      });
-      res.send({ frames: frames });
-    } else {
-      res.send({ frames: [] });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: error.message });
-  }
-});
 router.post("/saveDailyQuizData", async (req, res) => {
   try {
-    const dialyQuizData = req.body;
-    const collectionName = "daily-quiz-batch6";
+    const batchNo = req.body.batchNo;
+    if(!batchNo){
+      return res.status(400).send({ error: "batchNo is required" });
+    }
+    const collectionName = `daily-quiz-batch${batchNo}`;
     const userRef = await db.collection(collectionName).get();
     let dailyQuizData = [];
     const registrationNo = req.body.regID;
@@ -637,7 +726,11 @@ router.post("/saveDailyQuizData", async (req, res) => {
 });
 router.get('/getDailyQuizScore', async (req, res) => {
   try {
-    const collectionName = 'daily-quiz-batch6';
+    const batchNo = req.query.batchNo;
+    if(!batchNo){
+      return res.status(400).send({ error: "batchNo is required" });
+    }
+    const collectionName = `daily-quiz-batch${batchNo}`;
     const quizSnapshot = await db.collection(collectionName).get();
 
     let quizData = [];
@@ -690,35 +783,75 @@ router.get("/programDetails", async (req, res) => {
   }
 });
 
-router.get("/programDetails", async (req, res) => {
-  try {
-    const collectionName = "bible_study_programs";
-    const programSnapshot = await db.collection(collectionName).get();
-    let programDetails = [];
-    if (programSnapshot && !programSnapshot.empty) {
-      programSnapshot.forEach((doc) => {
-        programDetails.push({ id: doc.id, ...doc.data() });
-      });
-      res.send({ selfProgramDeatis: programDetails });
-    } else {
-      res.send({ selfProgramDeatis: [] });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: error.message });
-  }
-});
 router.post("/createProgram", async (req, res) => {
   try {
     const collectionName = "bible_study_programs";
-    const { name, description, duration } = req.body;
-    const newProgram = {
-      name,
-      description,
+    const {
+      online_quiz_results,
+      batch_no,
       duration,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      online_quiz_tracking,
+      final_quiz_result,
+      daily_quiz,
+      registration_link,
+      status,
+      address,
+      online_quiz,
+      schedule_dates,
+      contact_no,
+      language,
+      type,
+      final_quiz,
+      whatsapp_group_link,
+      church_name,
+      schedule_link,
+      no_chapters_per_day,
+      conducting_by,
+      programId,
+      schedule,
+    } = req.body;
+
+    const startDate = schedule_dates && schedule_dates.start_date;
+    const yearFromStartDate = String(startDate || "").match(/\b\d{4}\b/);
+    const year = yearFromStartDate ? yearFromStartDate[0] : String(programId || "");
+
+    if (!/^\d{4}$/.test(year)) {
+      return res.status(400).send({
+        error: "schedule_dates.start_date must include a four-digit year",
+      });
+    }
+
+    const newProgram = {
+      online_quiz_results,
+      batch_no,
+      duration,
+      online_quiz_tracking,
+      final_quiz_result,
+      daily_quiz,
+      registration_link,
+      status,
+      address,
+      online_quiz,
+      schedule_dates,
+      contact_no,
+      language,
+      type,
+      final_quiz,
+      whatsapp_group_link,
+      church_name,
+      schedule_link,
+      no_chapters_per_day,
+      conducting_by,
+      programId: programId || uuidv4(),
+      createdAt: new Date(),
+      schedule: schedule || [],
     };
-    const docRef = await db.collection(collectionName).add(newProgram);
+
+    const docRef = db.collection(collectionName).doc(year);
+    await docRef.set(
+      { batches: admin.firestore.FieldValue.arrayUnion(newProgram) },
+      { merge: true }
+    );
     res.send({ id: docRef.id, ...newProgram });
   } catch (error) {
     console.error(error);
