@@ -714,6 +714,7 @@ router.post("/saveDailyQuizData", async (req, res) => {
       }
     }
     let result = dailyQuizData;
+    
     // if (!dailyQuizData || dailyQuizData.length === 0) {
     //   return res.status(404).send({ error: "No puzzle scores found" });
     // }
