@@ -8,6 +8,7 @@ const multer = require("multer");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const admin = require("firebase-admin");
+const NodeCache = require("node-cache");
 const jwt = require("jsonwebtoken");
 const { result, uniqueId } = require("lodash");
 const { google } = require("googleapis");
@@ -50,6 +51,64 @@ const googleDriveInstance = google.drive({
   auth: authClientObject,
 });
 const db = admin.firestore();
+const dailyQuizScoreCache = new NodeCache({ stdTTL: 60, checkperiod: 0 });
+const dailyQuizSummaryDocumentId = "_score_summary";
+
+function getRegistrationId(user) {
+  return user["Registration ID"] || user.registration_id;
+}
+
+function getUniqueUsers(users = []) {
+  const uniqueUsers = new Map();
+
+  users.forEach((user) => {
+    const registrationId = getRegistrationId(user);
+    if (registrationId) {
+      uniqueUsers.set(registrationId, user);
+    }
+  });
+
+  return Array.from(uniqueUsers.values());
+}
+
+function createDailyQuizScoreResponse(scoreMap = {}) {
+  return {
+    quizData: Object.keys(scoreMap).length ? [scoreMap] : [],
+  };
+}
+
+async function buildDailyQuizScoreSummary(collectionName) {
+  const quizSnapshot = await db.collection(collectionName).get();
+  const scoreMap = {};
+
+  quizSnapshot.forEach((doc) => {
+    if (doc.id === dailyQuizSummaryDocumentId) {
+      return;
+    }
+
+    scoreMap[doc.id] = getUniqueUsers(doc.data().users || []);
+  });
+
+  return scoreMap;
+}
+
+async function ensureDailyQuizScoreSummary(collectionName) {
+  const summaryRef = db
+    .collection(collectionName)
+    .doc(dailyQuizSummaryDocumentId);
+  const summarySnapshot = await summaryRef.get();
+
+  if (summarySnapshot.exists) {
+    return summarySnapshot.data().quizData || {};
+  }
+
+  const scoreMap = await buildDailyQuizScoreSummary(collectionName);
+  await summaryRef.set({
+    quizData: scoreMap,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return scoreMap;
+}
 // POST endpoint to accept file and store in Firestore
 router.post("/upload", async (req, res) => {
   const storage = multer.memoryStorage();
@@ -622,103 +681,54 @@ router.post("/saveDailyQuizData", async (req, res) => {
       return res.status(400).send({ error: "batchNo is required" });
     }
     const collectionName = `daily-quiz-batch${batchNo}`;
-    const userRef = await db.collection(collectionName).get();
-    let dailyQuizData = [];
     const registrationNo = req.body.regID;
-    userRef.forEach((doc) => {
-      const data = doc.data();
-      if (data.users && Array.isArray(data.users)) {
-        const userTrack = data.users.find(
-          (u) => u["Registration ID"] === registrationNo
-        );
-        if (userTrack) {
-          dailyQuizData.push(userTrack);
-        }
+    const dayId = "Day_" + req.body.day;
+    const collectionRef = db.collection(collectionName);
+    const dayRef = collectionRef.doc(dayId);
+    const summaryRef = collectionRef.doc(dailyQuizSummaryDocumentId);
+
+    await ensureDailyQuizScoreSummary(collectionName);
+
+    const updatedTrack = {
+      "Registration ID": registrationNo,
+      "Day": req.body.day || "Unknown Day",
+      "Date": req.body.date || "Unknown Date",
+      "Answer": req.body.answer || "Unknown Answer",
+      "Marks": req.body.marks || 0,
+    };
+
+    let dailyQuizData;
+    await db.runTransaction(async (transaction) => {
+      const daySnapshot = await transaction.get(dayRef);
+      const summarySnapshot = await transaction.get(summaryRef);
+      const users = daySnapshot.exists ? daySnapshot.data().users || [] : [];
+      const userIndex = users.findIndex(
+        (user) => getRegistrationId(user) === registrationNo
+      );
+
+      if (userIndex === -1) {
+        users.push(updatedTrack);
+      } else {
+        users[userIndex] = { ...users[userIndex], ...updatedTrack };
       }
+
+      const scoreMap = summarySnapshot.exists
+        ? summarySnapshot.data().quizData || {}
+        : {};
+      scoreMap[dayId] = getUniqueUsers(users);
+
+      transaction.set(dayRef, { users });
+      transaction.set(summaryRef, {
+        quizData: scoreMap,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      dailyQuizData = getUniqueUsers(users).filter(
+        (user) => getRegistrationId(user) === registrationNo
+      );
     });
-    if (dailyQuizData.length == 0) {
-      const newTrack = {
-        "Registration ID": registrationNo,
-        "Day": req.body.day || "Unknown Day",
-        "Date": req.body.date || "Unknown Date",
-        "Answer": req.body.answer || "Unknow Answer",
-        "Marks": req.body.marks || '0'
-      };
-      const firstDocRef = db
-        .collection(collectionName)
-        .doc("Day_" + req.body.day);
-      // Add to the first document in the collection, or create a new doc
-      // Check if the document exists before updating
-      const docSnapshot = await firstDocRef.get();
-      if (docSnapshot.exists) {
-        await firstDocRef.update({
-          users: admin.firestore.FieldValue.arrayUnion(newTrack),
-        });
-      } else {
-        // If doc does not exist, create it with the new user
-        await firstDocRef.set({
-          users: [newTrack],
-        });
-      }
-      dailyQuizData.push(newTrack);
-    } else {
-      const docId = "Day_" + req.body.day;
-      const docRef = db.collection(collectionName).doc(docId);
-      const docSnapshot = await docRef.get();
 
-      const updatedTrack = {
-        "Registration ID": registrationNo,
-        Day: req.body.day || "Unknown Day",
-        Date: req.body.date || "Unknown Date",
-        Answer: req.body.answer || "Unknown Answer",
-        "Marks": req.body.marks || 0
-      };
-
-      // 👉 IF document does NOT exist → CREATE
-      if (!docSnapshot.exists) {
-        await docRef.set({
-          users: [updatedTrack],
-        });
-
-        dailyQuizData = [updatedTrack];
-      } else {
-        // 👉 IF document EXISTS → UPDATE existing user
-        const docData = docSnapshot.data();
-        const users = docData.users || [];
-
-        const userIndex = users.findIndex(
-          (u) => u.registration_id === registrationNo
-        );
-
-        // User exists → update
-        if (userIndex !== -1) {
-          users[userIndex] = {
-            ...users[userIndex],
-            Answer: req.body.answer || users[userIndex].Answer,
-            Date: req.body.date || users[userIndex].Date,
-            "Marks": req.body.marks || 0
-          };
-        }
-        // User does NOT exist → add new
-        else {
-          users.push(updatedTrack);
-        }
-
-        await docRef.update({
-          users,
-        });
-
-        dailyQuizData = users.filter(
-          (u) => u.registration_id === registrationNo
-        );
-      }
-    }
-    let result = dailyQuizData;
-    // if (!dailyQuizData || dailyQuizData.length === 0) {
-    //   return res.status(404).send({ error: "No puzzle scores found" });
-    // }
-
-    res.send(result);
+    dailyQuizScoreCache.del(`dailyQuizScore:${batchNo}`);
+    res.send(dailyQuizData);
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: error.message });
@@ -731,34 +741,17 @@ router.get('/getDailyQuizScore', async (req, res) => {
       return res.status(400).send({ error: "batchNo is required" });
     }
     const collectionName = `daily-quiz-batch${batchNo}`;
-    const quizSnapshot = await db.collection(collectionName).get();
+    const cacheKey = `dailyQuizScore:${batchNo}`;
+    const cachedResponse = dailyQuizScoreCache.get(cacheKey);
 
-    let quizData = [];
-
-    if (quizSnapshot && !quizSnapshot.empty) {
-      const obj = {};
-
-      quizSnapshot.forEach((doc) => {
-        const users = doc.data().users || [];
-
-        // Deduplicate users based on Registration ID
-        const uniqueUsersMap = new Map();
-
-        users.forEach(user => {
-          const regId = user['Registration ID'] || user['registration_id'];
-          if (regId && !uniqueUsersMap.has(regId)) {
-            uniqueUsersMap.set(regId, user);
-          }
-        });
-
-        obj[doc.id] = Array.from(uniqueUsersMap.values());
-      });
-
-      quizData.push(obj);
-      res.send({ quizData });
-    } else {
-      res.send({ quizData: [] });
+    if (cachedResponse) {
+      return res.send(cachedResponse);
     }
+
+    const scoreMap = await ensureDailyQuizScoreSummary(collectionName);
+    const response = createDailyQuizScoreResponse(scoreMap);
+    dailyQuizScoreCache.set(cacheKey, response);
+    res.send(response);
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: error.message });
