@@ -13,7 +13,8 @@ const credentials = {
   "api_key": process.env.API_KEY,
   "channel_id": process.env.CHANNEL_ID,
   "whatsapp_token": process.env.WHATSAPP_TOKEN,
-  "phone_number_id": process.env.PHONE_NUMBER_ID
+  "phone_number_id": process.env.PHONE_NUMBER_ID,
+  "admin_jwt_secret": process.env.ADMIN_JWT_SECRET
 };
 
 module.exports = credentials;
