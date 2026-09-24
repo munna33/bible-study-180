@@ -12,6 +12,7 @@ const jwt = require("jsonwebtoken");
 const { result, uniqueId } = require("lodash");
 const { google } = require("googleapis");
 const { v4: uuidv4 } = require('uuid');
+const { batch } = require("googleapis/build/src/apis/batch/index.js");
 router.use(
   bodyParser.urlencoded({
     extended: true,
@@ -621,7 +622,7 @@ router.post("/saveDailyQuizData", async (req, res) => {
     if(!batchNo){
       return res.status(400).send({ error: "batchNo is required" });
     }
-    const collectionName = `daily-quiz-batch${batchNo}`;
+    const collectionName = `daily-quiz-batch${batchNo == '6' ? '-'+batchNo : batchNo}`;
     const userRef = await db.collection(collectionName).get();
     let dailyQuizData = [];
     const registrationNo = req.body.regID;
@@ -724,44 +725,96 @@ router.post("/saveDailyQuizData", async (req, res) => {
     res.status(500).send({ error: error.message });
   }
 });
-router.get('/getDailyQuizScore', async (req, res) => {
+router.get("/getDailyQuizScore", async (req, res) => {
   try {
     const batchNo = req.query.batchNo;
-    if(!batchNo){
-      return res.status(400).send({ error: "batchNo is required" });
+
+    if (!batchNo) {
+      return res.status(400).send({
+        error: "batchNo is required",
+      });
     }
-    const collectionName = `daily-quiz-batch${batchNo}`;
-    const quizSnapshot = await db.collection(collectionName).get();
+    const collectionName = `daily-quiz-batch${batchNo == '6' ? '-'+batchNo : batchNo}`;
+    const collectionRef = db.collection(collectionName);
 
-    let quizData = [];
+    const quizObject = {
+    };
+    const pageSize = 20;
+    let lastDoc = null;
 
-    if (quizSnapshot && !quizSnapshot.empty) {
-      const obj = {};
+    while (true) {
+      let query = collectionRef
+        .orderBy(admin.firestore.FieldPath.documentId())
+        .limit(pageSize);
+
+      if (lastDoc) {
+        query = query.startAfter(lastDoc);
+      }
+
+      const quizSnapshot = await query.get();
+
+      if (quizSnapshot.empty) {
+        break;
+      }
 
       quizSnapshot.forEach((doc) => {
         const users = doc.data().users || [];
-
-        // Deduplicate users based on Registration ID
         const uniqueUsersMap = new Map();
 
-        users.forEach(user => {
-          const regId = user['Registration ID'] || user['registration_id'];
-          if (regId && !uniqueUsersMap.has(regId)) {
-            uniqueUsersMap.set(regId, user);
+        users.forEach((user) => {
+          const registrationId =
+            user["Registration ID"] ||
+            user["registration_id"];
+
+          if (registrationId && !uniqueUsersMap.has(registrationId)) {
+            uniqueUsersMap.set(registrationId, user);
           }
         });
 
-        obj[doc.id] = Array.from(uniqueUsersMap.values());
+        quizObject[doc.id] = Array.from(uniqueUsersMap.values());
       });
 
-      quizData.push(obj);
-      res.send({ quizData });
-    } else {
-      res.send({ quizData: [] });
+      lastDoc = quizSnapshot.docs[quizSnapshot.docs.length - 1];
+
+      if (quizSnapshot.size < pageSize) {
+        break;
+      }
     }
+
+
+    const dailyQuizFilePath = path.join(__dirname, "..", "daily_quiz_data.txt");
+    const dailyQuizFileData = JSON.parse(
+      fs.readFileSync(dailyQuizFilePath, "utf8")
+    );
+
+    dailyQuizFileData.forEach((dayData) => {
+      Object.entries(dayData).forEach(([day, fileUsers]) => {
+        const users = quizObject[day] || [];
+        const uniqueUsersMap = new Map();
+
+        [...users, ...fileUsers].forEach((user) => {
+          const registrationId =
+            user["Registration ID"] || user["registration_id"];
+
+          if (registrationId && !uniqueUsersMap.has(registrationId)) {
+            uniqueUsersMap.set(registrationId, user);
+          }
+        });
+
+        quizObject[day] = Array.from(uniqueUsersMap.values());
+      });
+    });
+
+    res.send({
+      quizData: Object.keys(quizObject).length
+        ? [quizObject]
+        : [],
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: error.message });
+    console.error("Error retrieving daily quiz scores:", error);
+    res.status(500).send({
+      error: error.message,
+    });
   }
 });
 router.get("/programDetails", async (req, res) => {
