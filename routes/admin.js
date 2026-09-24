@@ -781,8 +781,8 @@ router.get("/getDailyQuizScore", async (req, res) => {
       }
     }
 
-
-    const dailyQuizFilePath = path.join(__dirname, "..", "daily_quiz_data.txt");
+    if(batchNo == 6) {
+      const dailyQuizFilePath = path.join(__dirname, "..", "daily_quiz_data.txt");
     const dailyQuizFileData = JSON.parse(
       fs.readFileSync(dailyQuizFilePath, "utf8")
     );
@@ -804,6 +804,8 @@ router.get("/getDailyQuizScore", async (req, res) => {
         quizObject[day] = Array.from(uniqueUsersMap.values());
       });
     });
+    }
+    
 
     res.send({
       quizData: Object.keys(quizObject).length
