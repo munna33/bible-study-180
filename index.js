@@ -5,6 +5,9 @@ const whatsappRouter = require("./routes/whatsapp");
 const bibleStudy = require("./routes/bible-study");
 const programsRouter = require('./routes/programs')
 const NodeCache = require("node-cache");
+const path = require("path");
+const fs = require("fs");
+const multer = require("multer");
 const sheetCache = new NodeCache({ stdTTL: 60 }); // cache 60s (tweak as needed)
 
 //googleapis
@@ -707,6 +710,14 @@ app.post("/submitQuiz/:id", async (req, res) => {
 });
 
 app.get("/quizDetails/:id", async (req, res) => {
+  const batchNo = req.query.batchNo;
+  const oldTestamentQuiz = path.join(
+    __dirname,
+    "old_testament_online_quiz_details.txt"
+  );
+  const dailyQuizFileData = JSON.parse(
+    fs.readFileSync(oldTestamentQuiz, "utf8")
+  );
   const spreadsheets = await googleSheetsInstance.spreadsheets.get({
     auth, //auth object
     spreadsheetId: req.params.id,
@@ -721,7 +732,37 @@ app.get("/quizDetails/:id", async (req, res) => {
   });
 
   getQuizSheetsData(result, req, res).then((data) => {
-    res.json(data);
+    const finalData = batchNo == '6' ? {...dailyQuizFileData, ...data} : data;
+    res.json(finalData);
+  });
+  // res.json(this.getQuizSheetsData) ;
+});
+app.get("/quizDetailsResults/:id", async (req, res) => {
+  const batchNo = req.query.batchNo;
+  const oldTestamentQuizResult = path.join(
+    __dirname,
+    "old_testament_online_quiz_score.txt"
+  );
+  const dailyQuizFileData = JSON.parse(
+    fs.readFileSync(oldTestamentQuizResult, "utf8")
+  );
+  const spreadsheets = await googleSheetsInstance.spreadsheets.get({
+    auth, //auth object
+    spreadsheetId: req.params.id,
+  });
+
+  const result = spreadsheets.data.sheets.map((item) => {
+    return {
+      title: item.properties.title,
+      sheetId: item.properties.sheetId,
+      index: item.properties.index,
+    };
+  });
+
+  getQuizSheetsData(result, req, res).then((data) => {
+    const finalData = batchNo == '6' ? {...dailyQuizFileData, ...data} : data;
+    
+    res.json(finalData);
   });
   // res.json(this.getQuizSheetsData) ;
 });
